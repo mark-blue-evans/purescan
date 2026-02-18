@@ -23,12 +23,13 @@ export default function Grocery() {
   const loadItems = async () => {
     try {
       const response = await fetch('/api/grocery');
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json();
+      if (Array.isArray(data)) {
         setItems(data);
       }
     } catch (error) {
       console.error('Failed to load grocery:', error);
+      setItems([]);
     } finally {
       setLoading(false);
     }

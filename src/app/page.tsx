@@ -127,12 +127,20 @@ export default function Scanner() {
 
   const addToGrocery = async () => {
     if (!result) return;
-    await fetch('/api/grocery', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ barcode: result.barcode, productName: result.name, purityScore: result.score }),
-    });
-    alert('Added to grocery list!');
+    try {
+      const response = await fetch('/api/grocery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: result.barcode, productName: result.name, purityScore: result.score }),
+      });
+      if (response.ok) {
+        alert('Added to grocery list!');
+      } else {
+        alert('Failed to add. Try again.');
+      }
+    } catch (e) {
+      alert('Error adding item');
+    }
   };
 
   const RiskCard = ({ title, items, color, count }: { title: string, items: string[], color: string, count: number }) => {
