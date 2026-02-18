@@ -3,13 +3,19 @@ import { getDb, initializeDb } from '@/lib/db';
 import { lookupProduct } from '@/lib/openfoodfacts';
 import { calculatePurityScore } from '@/lib/scoring';
 
+// Track if DB is initialized to avoid repeated init
+let dbInitialized = false;
+
 export async function POST(request: NextRequest) {
   try {
-    // Initialize database if needed
-    try {
-      await initializeDb();
-    } catch (dbError) {
-      console.log('DB might already be initialized:', dbError);
+    // Initialize database only once
+    if (!dbInitialized) {
+      try {
+        await initializeDb();
+        dbInitialized = true;
+      } catch (dbError) {
+        console.log('DB init error:', dbError);
+      }
     }
 
     const { barcode } = await request.json();
@@ -31,18 +37,14 @@ export async function POST(request: NextRequest) {
       product.novaGroup
     );
 
-    // Save to database
+    // Save to database (don't await - fire and forget)
     try {
       const db = getDb();
       if (db) {
-        await db`
-          INSERT INTO scans (barcode, product_name, purity_score, processing_level, ingredients, image_url)
-          VALUES (${product.barcode}, ${product.name}, ${scoreResult.score}, ${scoreResult.processingLevel}, ${JSON.stringify(product.ingredients || [])}, ${product.image || null})
-        `;
+        db`INSERT INTO scans (barcode, product_name, purity_score, processing_level, ingredients, image_url) VALUES (${product.barcode}, ${product.name}, ${scoreResult.score}, ${scoreResult.processingLevel}, ${JSON.stringify(product.ingredients || [])}, ${product.image || null})`.catch(() => {});
       }
     } catch (saveError) {
       console.error('Error saving scan:', saveError);
-      // Continue anyway - product lookup succeeded
     }
 
     return NextResponse.json({
@@ -55,7 +57,15 @@ export async function POST(request: NextRequest) {
       score: scoreResult.score,
       processingLevel: scoreResult.processingLevel,
       risks: scoreResult.risks,
-      scoreFactors: scoreResult.scoreFactors
+      scoreFactors: scoreResult.scoreFactors,
+      // Origin info
+      origin: {
+        country: product.countryOfOrigin,
+        manufacturing: product.manufacturingPlaces,
+        origins: product.origins,
+        categories: product.categories,
+        labels: product.labels
+      }
     });
   } catch (error) {
     console.error('Scan error:', error);

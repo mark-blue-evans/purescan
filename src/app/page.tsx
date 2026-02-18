@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2, AlertTriangle, Shield, Zap, Brain, Droplets, Info } from 'lucide-react';
+import { Camera, Loader2, AlertTriangle, Shield, Zap, Brain, Droplets, Info, MapPin } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface ProductResult {
@@ -27,6 +27,13 @@ interface ProductResult {
     ingredients: string;
     healthRisks: string;
     overall: string;
+  };
+  origin?: {
+    country: string;
+    manufacturing: string;
+    origins: string;
+    categories: string;
+    labels: string;
   };
 }
 
@@ -403,6 +410,40 @@ export default function Scanner() {
               {result.scoreFactors?.healthRisks}
             </p>
           </div>
+
+          {/* Origin Info */}
+          {(result.origin?.country || result.origin?.manufacturing || result.origin?.categories) && (
+            <div style={{ marginBottom: '20px', padding: '16px', background: '#27272A', borderRadius: '12px' }}>
+              <p style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px', color: '#A1A1AA' }}>
+                📍 Product Information
+              </p>
+              {result.origin?.categories && (
+                <p style={{ fontSize: '13px', color: '#FAFAFA', marginBottom: '8px' }}>
+                  <span style={{ color: '#10B981' }}>Category:</span> {result.origin.categories}
+                </p>
+              )}
+              {result.origin?.country && (
+                <p style={{ fontSize: '13px', color: '#FAFAFA', marginBottom: '8px' }}>
+                  <span style={{ color: '#10B981' }}>Country:</span> {result.origin.country}
+                </p>
+              )}
+              {result.origin?.manufacturing && (
+                <p style={{ fontSize: '13px', color: '#FAFAFA', marginBottom: '8px' }}>
+                  <span style={{ color: '#10B981' }}>Manufacturing:</span> {result.origin.manufacturing}
+                </p>
+              )}
+              {result.origin?.origins && (
+                <p style={{ fontSize: '13px', color: '#FAFAFA', marginBottom: '8px' }}>
+                  <span style={{ color: '#10B981' }}>Origin:</span> {result.origin.origins}
+                </p>
+              )}
+              {result.origin?.labels && (
+                <p style={{ fontSize: '13px', color: '#FAFAFA' }}>
+                  <span style={{ color: '#10B981' }}>Labels:</span> {result.origin.labels}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Risk Sections */}
           <div style={{ borderTop: '1px solid #27272A', paddingTop: '16px' }}>

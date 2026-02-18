@@ -16,12 +16,36 @@ export interface ProductData {
     'salt_100g'?: number;
     'sodium_100g'?: number;
   };
+  // Origin info
+  countryOfOrigin?: string;
+  manufacturingPlaces?: string;
+  origins?: string;
+  categories?: string;
+  labels?: string;
+  traces?: string;
+}
+
+const FETCH_TIMEOUT = 5000; // 5 second timeout
+
+async function fetchWithTimeout(url: string, timeout: number = FETCH_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
 }
 
 export async function lookupProduct(barcode: string): Promise<ProductData | null> {
   try {
-    const response = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`
+    const response = await fetchWithTimeout(
+      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`,
+      5000
     );
     
     if (!response.ok) {
@@ -48,6 +72,23 @@ export async function lookupProduct(barcode: string): Promise<ProductData | null
       ingredients = product.ingredients.map((i: {text?: string, name?: string}) => i.text || i.name || '').filter(Boolean);
     }
     
+    // Get origin/country info
+    const countryOfOrigin = product.countries_tags?.[0]?.replace('en:', '') || 
+                          product.country_of_origin_tags?.[0]?.replace('en:', '') ||
+                          product.origin || '';
+    
+    const manufacturingPlaces = product.manufacturing_places || 
+                              product.manufacturing_places_tags?.[0] || '';
+    
+    const origins = product.origins || product.origins_tags?.[0]?.replace('en:', '') || '';
+    
+    // Get categories to identify product type
+    const categories = product.categories_tags?.map((c: string) => c.replace('en:', '')).join(', ') || 
+                      product.categories || '';
+    
+    const labels = product.labels_tags?.map((l: string) => l.replace('en:', '')).join(', ') ||
+                  product.labels || '';
+    
     return {
       barcode: product.code || barcode,
       name: product.product_name || product.product_name_en || 'Unknown Product',
@@ -55,7 +96,12 @@ export async function lookupProduct(barcode: string): Promise<ProductData | null
       image: product.image_url || product.image_front_url,
       ingredients,
       novaGroup: product.nova_group ? parseInt(product.nova_group) : undefined,
-      nutriments: product.nutriments
+      nutriments: product.nutriments,
+      countryOfOrigin,
+      manufacturingPlaces,
+      origins,
+      categories,
+      labels
     };
   } catch (error) {
     console.error('Error fetching product:', error);
@@ -65,8 +111,9 @@ export async function lookupProduct(barcode: string): Promise<ProductData | null
 
 export async function searchProducts(query: string): Promise<ProductData[]> {
   try {
-    const response = await fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10`
+    const response = await fetchWithTimeout(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10`,
+      5000
     );
     
     if (!response.ok) {
