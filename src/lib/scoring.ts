@@ -1,18 +1,23 @@
 // Enhanced Purity Score Algorithm
 // Score out of 100 based on multiple health factors
 
+import { getAdditiveInfo, E_NUMBER_DB, AdditiveInfo } from './additives';
+
 interface IngredientAnalysis {
   seedOils: string[];
   palmOil: boolean;
   additives: string[];
+  additiveDetails: { name: string; info: AdditiveInfo | null }[];
   artificialIngredients: string[];
   addedSugars: string[];
   pesticides: string[];
   microplastics: string[];
   heavyMetals: string[];
+  heavyMetalsBreakdown: { metal: string; risk: string; description: string }[];
   carcinogens: string[];
   hormones: string[];
   commonAllergens: string[];
+  isOrganic: boolean;
 }
 
 interface ScoreResult {
@@ -34,10 +39,12 @@ interface ScoreResult {
     seedOils: string[];
     palmOil: boolean;
     additives: string[];
+    additiveDetails: { name: string; info: AdditiveInfo | null }[];
     artificial: string[];
     pesticides: string[];
     microplastics: string[];
     heavyMetals: string[];
+    heavyMetalsBreakdown: { metal: string; risk: string; description: string }[];
     carcinogens: string[];
   };
   scoreFactors: {
@@ -46,6 +53,7 @@ interface ScoreResult {
     healthRisks: string;
     overall: string;
   };
+  eNumbers: { name: string; eNumber: string; safety: string; effects: string[] }[];
 }
 
 // Known harmful ingredients databases
@@ -107,6 +115,7 @@ const COMMON_ALLERGENS = [
 
 export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
   const lowerIngredients = ingredients.map(i => i.toLowerCase());
+  const fullText = lowerIngredients.join(' ');
   
   const seedOils = SEED_OILS.filter(oil => 
     lowerIngredients.some(i => i.includes(oil))
@@ -116,6 +125,15 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
   const hasPalmOil = lowerIngredients.some(i => 
     i.includes('palm oil') || i.includes('palm kernel') || i.includes('palmolein')
   );
+  
+  // Detect additives with E-number info
+  const additiveDetails: { name: string; info: AdditiveInfo | null }[] = [];
+  lowerIngredients.forEach(ing => {
+    const info = getAdditiveInfo(ing);
+    if (info) {
+      additiveDetails.push({ name: ing, info });
+    }
+  });
   
   const additives = lowerIngredients.filter(i => 
     i.includes('emulsifier') || i.includes('stabilizer') || 
@@ -141,6 +159,17 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
     lowerIngredients.some(i => i.includes(metal))
   );
 
+  // Heavy metals breakdown
+  const heavyMetalsBreakdown: { metal: string; risk: string; description: string }[] = [];
+  if (fullText.includes('cadmium') || fullText.includes('lead') || fullText.includes('mercury') || fullText.includes('arsenic')) {
+    heavyMetalsBreakdown.push(
+      { metal: 'Cadmium', risk: 'medium', description: 'Can accumulate in body, especially from rice and leafy greens' },
+      { metal: 'Lead', risk: 'low', description: 'Common contaminant, regulated in most countries' },
+      { metal: 'Mercury', risk: 'low', description: 'Main concern is seafood contamination' },
+      { metal: 'Arsenic', risk: 'medium', description: 'Present in rice and grains, organic rice has lower levels' }
+    );
+  }
+
   const microplastics = MICROPLASTICS.filter(plastic => 
     lowerIngredients.some(i => i.includes(plastic))
   );
@@ -153,18 +182,24 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
     lowerIngredients.some(i => i.includes(allergen))
   );
 
+  // Detect organic
+  const isOrganic = fullText.includes('organic') || fullText.includes('bio') || fullText.includes('eco');
+
   return { 
     seedOils, 
     palmOil: hasPalmOil,
     additives, 
+    additiveDetails,
     artificialIngredients, 
     addedSugars,
     pesticides,
     microplastics,
     heavyMetals,
+    heavyMetalsBreakdown,
     carcinogens,
     hormones: [],
-    commonAllergens
+    commonAllergens,
+    isOrganic
   };
 }
 
@@ -192,16 +227,22 @@ export function calculatePurityScore(
     seedOils: [] as string[],
     palmOil: false,
     additives: [] as string[],
+    additiveDetails: [] as { name: string; info: AdditiveInfo | null }[],
     artificial: [] as string[],
     pesticides: [] as string[],
     microplastics: [] as string[],
     heavyMetals: [] as string[],
+    heavyMetalsBreakdown: [] as { metal: string; risk: string; description: string }[],
     carcinogens: [] as string[]
   };
 
   // Use ingredients from API if provided, otherwise analyze from text
   const ingredientList = ingredients && ingredients.length > 0 ? ingredients : [];
   const analysis = analyzeIngredients(ingredientList);
+
+  // Add additive details from our E-number database
+  risks.additiveDetails = analysis.additiveDetails;
+  risks.heavyMetalsBreakdown = analysis.heavyMetalsBreakdown;
 
   // Add API-detected additives
   if (additivesFromAPI && additivesFromAPI.length > 0) {
@@ -314,12 +355,29 @@ export function calculatePurityScore(
     overall: getOverallDescription(score)
   };
 
+  // Build E-numbers list with safety info
+  const eNumbers = analysis.additiveDetails
+    .filter(d => d.info)
+    .map(d => ({
+      name: d.info!.name,
+      eNumber: d.info!.eNumber,
+      safety: d.info!.safety,
+      effects: d.info!.effects
+    }));
+
+  // Organic bonus
+  if (analysis.isOrganic) {
+    score += 5;
+    score = Math.min(100, score);
+  }
+
   return {
     score,
     processingLevel,
     breakdown,
     risks,
-    scoreFactors
+    scoreFactors,
+    eNumbers
   };
 }
 

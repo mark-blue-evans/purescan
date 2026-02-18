@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       processingLevel: scoreResult.processingLevel,
       risks: scoreResult.risks,
       scoreFactors: scoreResult.scoreFactors,
+      eNumbers: scoreResult.eNumbers,
       origin: {
         country: product.countryOfOrigin,
         manufacturing: product.manufacturingPlaces,

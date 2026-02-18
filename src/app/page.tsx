@@ -15,14 +15,17 @@ interface ProductResult {
     seedOils: string[];
     palmOil: boolean;
     additives: string[];
+    additiveDetails: { name: string; info: { name: string; eNumber: string; safety: string; effects: string[]; description: string } | null }[];
     artificial: string[];
     pesticides: string[];
     microplastics: string[];
     heavyMetals: string[];
+    heavyMetalsBreakdown: { metal: string; risk: string; description: string }[];
     carcinogens: string[];
   };
+  eNumbers: { name: string; eNumber: string; safety: string; effects: string[] }[];
   scoreFactors: { overall: string };
-  origin?: { country: string; categories: string; manufacturing: string };
+  origin?: { country: string; categories: string; manufacturing: string; labels?: string };
 }
 
 export default function Scanner() {
@@ -179,6 +182,13 @@ export default function Scanner() {
     const hasSeedOil = (result?.risks?.seedOils?.length || 0) > 0;
     const hasPalmOil = result?.risks?.palmOil || false;
     const additiveCount = (result?.risks?.additives?.length || 0) + (result?.risks?.artificial?.length || 0);
+    const isOrganic = result?.origin?.labels?.toLowerCase().includes('organic') || 
+                      result?.origin?.labels?.toLowerCase().includes('bio') ||
+                      result?.origin?.labels?.toLowerCase().includes('eco') ||
+                      result?.origin?.categories?.toLowerCase().includes('organic');
+    const eNumbers = result?.eNumbers || [];
+    const redAdditives = eNumbers.filter(e => e.safety === 'red').length;
+    const orangeAdditives = eNumbers.filter(e => e.safety === 'orange').length;
     
     return (
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '20px' }}>
@@ -193,6 +203,96 @@ export default function Scanner() {
         <div style={{ background: '#667eea20', border: '1px solid #667eea40', borderRadius: '20px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ fontSize: '14px' }}>📝</span>
           <span style={{ fontSize: '13px', color: '#8892eb', fontWeight: 500 }}>{additiveCount} Additives</span>
+        </div>
+        {isOrganic && (
+          <div style={{ background: '#10B98120', border: '1px solid #10B98140', borderRadius: '20px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '14px' }}>🌿</span>
+            <span style={{ fontSize: '13px', color: '#10B981', fontWeight: 500 }}>Organic</span>
+          </div>
+        )}
+        {(redAdditives > 0 || orangeAdditives > 0) && (
+          <div style={{ background: redAdditives > 0 ? '#EF444420' : '#F59E0B20', border: `1px solid ${redAdditives > 0 ? '#EF4444' : '#F59E0B'}40`, borderRadius: '20px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '14px' }}>⚠️</span>
+            <span style={{ fontSize: '13px', color: redAdditives > 0 ? '#EF4444' : '#F59E0B', fontWeight: 500 }}>{redAdditives > 0 ? `${redAdditives} High Risk` : `${orangeAdditives} Medium Risk`}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const AdditivesList = () => {
+    const eNumbers = result?.eNumbers || [];
+    if (eNumbers.length === 0) return null;
+
+    const getSafetyColor = (safety: string) => {
+      if (safety === 'red') return '#EF4444';
+      if (safety === 'orange') return '#F59E0B';
+      return '#10B981';
+    };
+
+    return (
+      <div style={{ marginBottom: '20px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#667eea' }}>🧪</span> Additives Breakdown
+          {eNumbers.some(e => e.safety === 'red') && <span style={{ fontSize: '12px', color: '#EF4444', fontWeight: 500 }}>(Contains high-risk)</span>}
+        </h3>
+        <div style={{ background: '#16161c', borderRadius: '16px', padding: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          {eNumbers.map((additive, i) => (
+            <div key={i} style={{ padding: '12px 0', borderBottom: i < eNumbers.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 600, color: '#fff', fontSize: '14px' }}>{additive.name}</span>
+                  <span style={{ background: '#222', color: '#888', padding: '2px 8px', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace' }}>{additive.eNumber.toUpperCase()}</span>
+                </div>
+                <span style={{ 
+                  fontSize: '10px', 
+                  padding: '3px 8px', 
+                  borderRadius: '8px', 
+                  background: getSafetyColor(additive.safety) + '20', 
+                  color: getSafetyColor(additive.safety),
+                  fontWeight: 600
+                }}>{additive.safety.toUpperCase()}</span>
+              </div>
+              <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>{additive.effects.join(', ')}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const HeavyMetalsDetail = () => {
+    const metals = result?.risks?.heavyMetalsBreakdown || [];
+    if (metals.length === 0) return null;
+
+    const getRiskColor = (risk: string) => {
+      if (risk === 'high') return '#EF4444';
+      if (risk === 'medium') return '#F59E0B';
+      return '#10B981';
+    };
+
+    return (
+      <div style={{ marginBottom: '20px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#8B5CF6' }}>⚗️</span> Heavy Metals Detail
+        </h3>
+        <div style={{ background: '#16161c', borderRadius: '16px', padding: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          {metals.map((metal, i) => (
+            <div key={i} style={{ padding: '12px 0', borderBottom: i < metals.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 600, color: '#fff', fontSize: '15px' }}>{metal.metal}</span>
+                <span style={{ 
+                  fontSize: '10px', 
+                  padding: '3px 8px', 
+                  borderRadius: '8px', 
+                  background: getRiskColor(metal.risk) + '20', 
+                  color: getRiskColor(metal.risk),
+                  fontWeight: 600
+                }}>{metal.risk.toUpperCase()}</span>
+              </div>
+              <p style={{ fontSize: '12px', color: '#666' }}>{metal.description}</p>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -283,6 +383,8 @@ export default function Scanner() {
               <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ color: '#667eea' }}>🔬</span> Health Analysis {totalRisks > 0 && <span style={{ fontSize: '12px', color: '#EF4444', fontWeight: 500 }}>({totalRisks} concerns)</span>}</h3>
               
               <QuickHighlights />
+              <AdditivesList />
+              <HeavyMetalsDetail />
               
               <RiskCard title="⚠️ Cancer Risk" items={result.risks?.carcinogens || []} color="#EF4444" count={result.risks?.carcinogens?.length || 0} riskLevel={result.risks?.carcinogens?.length ? 'high' : 'low'} />
               <RiskCard title="🔬 Heavy Metals" items={result.risks?.heavyMetals || []} color="#8B5CF6" count={result.risks?.heavyMetals?.length || 0} riskLevel={result.risks?.heavyMetals?.length ? 'medium' : 'low'} />
