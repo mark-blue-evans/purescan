@@ -3,6 +3,7 @@
 
 interface IngredientAnalysis {
   seedOils: string[];
+  palmOil: boolean;
   additives: string[];
   artificialIngredients: string[];
   addedSugars: string[];
@@ -31,6 +32,7 @@ interface ScoreResult {
   };
   risks: {
     seedOils: string[];
+    palmOil: boolean;
     additives: string[];
     artificial: string[];
     pesticides: string[];
@@ -110,6 +112,11 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
     lowerIngredients.some(i => i.includes(oil))
   );
   
+  // Separate palm oil detection
+  const hasPalmOil = lowerIngredients.some(i => 
+    i.includes('palm oil') || i.includes('palm kernel') || i.includes('palmolein')
+  );
+  
   const additives = lowerIngredients.filter(i => 
     i.includes('emulsifier') || i.includes('stabilizer') || 
     i.includes('thickener') || i.includes('preservative') ||
@@ -148,6 +155,7 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
 
   return { 
     seedOils, 
+    palmOil: hasPalmOil,
     additives, 
     artificialIngredients, 
     addedSugars,
@@ -182,6 +190,7 @@ export function calculatePurityScore(
 
   const risks = {
     seedOils: [] as string[],
+    palmOil: false,
     additives: [] as string[],
     artificial: [] as string[],
     pesticides: [] as string[],
@@ -213,6 +222,13 @@ export function calculatePurityScore(
     breakdown.seedOilsPenalty = analysis.seedOils.length * 15;
     score -= breakdown.seedOilsPenalty;
     risks.seedOils = analysis.seedOils.map(o => `Contains ${o}`);
+  }
+
+  // Palm oil penalty (-10 if detected)
+  if (analysis.palmOil) {
+    breakdown.seedOilsPenalty += 10;
+    score -= 10;
+    risks.palmOil = true;
   }
 
   // Additives from text analysis

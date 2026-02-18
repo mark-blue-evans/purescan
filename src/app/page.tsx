@@ -13,6 +13,7 @@ interface ProductResult {
   processingLevel: string;
   risks: {
     seedOils: string[];
+    palmOil: boolean;
     additives: string[];
     artificial: string[];
     pesticides: string[];
@@ -20,7 +21,7 @@ interface ProductResult {
     heavyMetals: string[];
     carcinogens: string[];
   };
-  scoreFactors: { overall: string; };
+  scoreFactors: { overall: string };
   origin?: { country: string; categories: string; manufacturing: string };
 }
 
@@ -143,16 +144,56 @@ export default function Scanner() {
     }
   };
 
-  const RiskCard = ({ title, items, color, count }: { title: string, items: string[], color: string, count: number }) => {
+  const RiskCard = ({ title, items, color, count, riskLevel }: { title: string, items: string[], color: string, count: number, riskLevel?: 'low' | 'medium' | 'high' }) => {
     if (count === 0) return null;
+    const riskColors = { low: '#10B981', medium: '#F59E0B', high: '#EF4444' };
+    const barColor = riskLevel ? riskColors[riskLevel] : color;
     return (
-      <div style={{ background: `${color}10`, borderRadius: '14px', padding: '14px', marginBottom: '10px', border: `1px solid ${color}30` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontWeight: 600, fontSize: '14px', color }}>{title}</span>
-          <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '12px', background: color, color: '#fff', fontWeight: 600 }}>{count}</span>
+      <div style={{ background: '#16161c', borderRadius: '16px', padding: '16px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <span style={{ fontWeight: 600, fontSize: '15px', color: '#fff' }}>{title}</span>
+          {riskLevel && (
+            <span style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '12px', background: barColor + '20', color: barColor, fontWeight: 600 }}>
+              {riskLevel.toUpperCase()}
+            </span>
+          )}
         </div>
-        {items.slice(0, 4).map((item, i) => <p key={i} style={{ fontSize: '12px', color: '#777', marginBottom: '2px' }}>• {item}</p>)}
-        {count > 4 && <p style={{ fontSize: '11px', color: '#555' }}>+{count - 4} more</p>}
+        {/* Risk level bar */}
+        {riskLevel && (
+          <div style={{ height: '4px', background: '#2a2a35', borderRadius: '2px', marginBottom: '12px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: riskLevel === 'low' ? '30%' : riskLevel === 'medium' ? '60%' : '90%', background: barColor, borderRadius: '2px' }} />
+          </div>
+        )}
+        {items.slice(0, 5).map((item, i) => (
+          <p key={i} style={{ fontSize: '13px', color: '#888', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: barColor, flexShrink: 0 }} />
+            {item}
+          </p>
+        ))}
+        {count > 5 && <p style={{ fontSize: '12px', color: '#555', marginTop: '6px' }}>+{count - 5} more</p>}
+      </div>
+    );
+  };
+
+  const QuickHighlights = () => {
+    const hasSeedOil = (result?.risks?.seedOils?.length || 0) > 0;
+    const hasPalmOil = result?.risks?.palmOil || false;
+    const additiveCount = (result?.risks?.additives?.length || 0) + (result?.risks?.artificial?.length || 0);
+    
+    return (
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '20px' }}>
+        <div style={{ background: hasSeedOil ? '#EF444420' : '#10B98120', border: `1px solid ${hasSeedOil ? '#EF4444' : '#10B981'}40`, borderRadius: '20px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '14px' }}>🛢️</span>
+          <span style={{ fontSize: '13px', color: hasSeedOil ? '#EF4444' : '#10B981', fontWeight: 500 }}>{hasSeedOil ? 'Has Seed Oil' : 'No Seed Oil'}</span>
+        </div>
+        <div style={{ background: hasPalmOil ? '#EF444420' : '#10B98120', border: `1px solid ${hasPalmOil ? '#EF4444' : '#10B981'}40`, borderRadius: '20px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '14px' }}>🌴</span>
+          <span style={{ fontSize: '13px', color: hasPalmOil ? '#EF4444' : '#10B981', fontWeight: 500 }}>{hasPalmOil ? 'Has Palm Oil' : 'No Palm Oil'}</span>
+        </div>
+        <div style={{ background: '#667eea20', border: '1px solid #667eea40', borderRadius: '20px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '14px' }}>📝</span>
+          <span style={{ fontSize: '13px', color: '#8892eb', fontWeight: 500 }}>{additiveCount} Additives</span>
+        </div>
       </div>
     );
   };
@@ -241,12 +282,14 @@ export default function Scanner() {
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ color: '#667eea' }}>🔬</span> Health Analysis {totalRisks > 0 && <span style={{ fontSize: '12px', color: '#EF4444', fontWeight: 500 }}>({totalRisks} concerns)</span>}</h3>
               
-              <RiskCard title="⚠️ Cancer Risk" items={result.risks?.carcinogens || []} color="#EF4444" count={result.risks?.carcinogens?.length || 0} />
-              <RiskCard title="🔬 Heavy Metals" items={result.risks?.heavyMetals || []} color="#8B5CF6" count={result.risks?.heavyMetals?.length || 0} />
-              <RiskCard title="🧪 Pesticides" items={result.risks?.pesticides || []} color="#F59E0B" count={result.risks?.pesticides?.length || 0} />
-              <RiskCard title="🧴 Microplastics" items={result.risks?.microplastics || []} color="#06B6D4" count={result.risks?.microplastics?.length || 0} />
-              <RiskCard title="🛢️ Seed Oils" items={result.risks?.seedOils || []} color="#F97316" count={result.risks?.seedOils?.length || 0} />
-              <RiskCard title="⚗️ Additives & Preservatives" items={[...(result.risks?.additives || []), ...(result.risks?.artificial || [])]} color="#EC4899" count={(result.risks?.additives?.length || 0) + (result.risks?.artificial?.length || 0)} />
+              <QuickHighlights />
+              
+              <RiskCard title="⚠️ Cancer Risk" items={result.risks?.carcinogens || []} color="#EF4444" count={result.risks?.carcinogens?.length || 0} riskLevel={result.risks?.carcinogens?.length ? 'high' : 'low'} />
+              <RiskCard title="🔬 Heavy Metals" items={result.risks?.heavyMetals || []} color="#8B5CF6" count={result.risks?.heavyMetals?.length || 0} riskLevel={result.risks?.heavyMetals?.length ? 'medium' : 'low'} />
+              <RiskCard title="🧪 Pesticides" items={result.risks?.pesticides || []} color="#F59E0B" count={result.risks?.pesticides?.length || 0} riskLevel={result.risks?.pesticides?.length ? 'medium' : 'low'} />
+              <RiskCard title="🧴 Microplastics" items={result.risks?.microplastics || []} color="#06B6D4" count={result.risks?.microplastics?.length || 0} riskLevel={result.risks?.microplastics?.length ? 'medium' : 'low'} />
+              <RiskCard title="🛢️ Seed Oils" items={result.risks?.seedOils || []} color="#F97316" count={result.risks?.seedOils?.length || 0} riskLevel={result.risks?.seedOils?.length ? 'high' : 'low'} />
+              <RiskCard title="⚗️ Additives & Preservatives" items={[...(result.risks?.additives || []), ...(result.risks?.artificial || [])]} color="#EC4899" count={(result.risks?.additives?.length || 0) + (result.risks?.artificial?.length || 0)} riskLevel={((result.risks?.additives?.length || 0) + (result.risks?.artificial?.length || 0)) > 5 ? 'high' : ((result.risks?.additives?.length || 0) + (result.risks?.artificial?.length || 0)) > 0 ? 'medium' : 'low'} />
             </div>
 
             <div style={{ background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)', borderRadius: '18px', padding: '20px', border: '1px solid rgba(102, 126, 234, 0.2)' }}>
