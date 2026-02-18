@@ -42,8 +42,30 @@ export default function Scanner() {
     try {
       setError(null);
       setScanning(true);
+      
+      // First check if browser supports camera
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError('Camera not supported on this device');
+        setScanning(false);
+        return;
+      }
+      
+      // Request camera permission first
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        // Stop the test stream
+        stream.getTracks().forEach(track => track.stop());
+      } catch (permError) {
+        setError('Camera permission denied. Please allow camera access in your browser settings.');
+        setScanning(false);
+        return;
+      }
+      
       const scanner = new Html5Qrcode('scanner-container');
       scannerRef.current = scanner;
+      
       await scanner.start(
         { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
         { 
@@ -56,15 +78,23 @@ export default function Scanner() {
           setScanning(false);
           await handleScan(decodedText);
         },
-        () => {}
+        (errorMessage) => {
+          // Ignore scan errors - just means no barcode found yet
+        }
       );
     } catch (err: unknown) {
-      const e = err as {message?: string};
-      setError(e.message || 'Camera access denied');
+      const e = err as {message?: string, name?: string};
+      console.error('Scanner error:', e);
+      if (e.name === 'NotAllowedError') {
+        setError('Camera permission denied. Please allow camera access.');
+      } else if (e.name === 'NotFoundError') {
+        setError('No camera found on this device.');
+      } else {
+        setError(e.message || 'Failed to start camera');
+      }
       setScanning(false);
     }
   };
-
   const stopScanning = async () => {
     if (scannerRef.current) { await scannerRef.current.stop(); scannerRef.current = null; }
     setScanning(false);
