@@ -45,8 +45,12 @@ export default function Scanner() {
       const scanner = new Html5Qrcode('scanner-container');
       scannerRef.current = scanner;
       await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 280, height: 160 } },
+        { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        { 
+          fps: 15, 
+          qrbox: { width: 300, height: 150 },
+          aspectRatio: 1.777
+        },
         async (decodedText) => {
           await scanner.stop();
           setScanning(false);
@@ -140,7 +144,15 @@ export default function Scanner() {
 
         {/* Scanner */}
         <div style={{ position: 'relative', marginBottom: '20px' }}>
-          <div id="scanner-container" style={{ width: '100%', height: scanning ? '280px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none' }} />
+          <div id="scanner-container" style={{ width: '100%', height: scanning ? '300px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none', position: 'relative' }}>
+            {scanning && (
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '-3px', left: '-3px', right: '-3px', height: '4px', background: 'linear-gradient(90deg, transparent, #667eea, transparent)', animation: 'scan 2s ease-in-out infinite' }} />
+                </div>
+              </div>
+            )}
+          </div>
           
           {!scanning && !loading && !result && (
             <div style={{ textAlign: 'center', padding: '30px 20px', background: '#16161c', borderRadius: '20px', border: '2px dashed #2a2a35' }}>
@@ -230,7 +242,10 @@ export default function Scanner() {
         )}
       </div>
 
-      <style jsx global>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <style jsx global>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes scan { 0%, 100% { top: -3px; } 50% { top: calc(100% - 1px); } }
+      `}</style>
     </div>
   );
 }
