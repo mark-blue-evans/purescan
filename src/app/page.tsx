@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Camera, Loader2, Heart, Plus, Search, ShoppingBag } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { getCountryFlag } from '@/lib/openfoodfacts';
 
 interface ProductResult {
@@ -31,22 +30,43 @@ export default function Scanner() {
   const [result, setResult] = useState<ProductResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState('');
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<any>(null);
   const [showManualInput, setShowManualInput] = useState(false);
+  const [Html5QrcodeModule, setHtml5QrcodeModule] = useState<any>(null);
+
+  // Load html5-qrcode only on client side
+  useEffect(() => {
+    import('html5-qrcode').then((module) => {
+      setHtml5QrcodeModule(module);
+    });
+  }, []);
 
   useEffect(() => {
-    return () => { if (scannerRef.current) scannerRef.current.stop().catch(() => {}); };
+    return () => { 
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {}); 
+      }
+    };
   }, []);
 
   const startScanning = async () => {
     try {
       setError(null);
-      setScanning(true);
       
-      // First check if browser supports camera
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError('Camera not supported on this device');
-        setScanning(false);
+      // Check if html5-qrcode is loaded
+      let Html5Qrcode;
+      if (Html5QrcodeModule) {
+        Html5Qrcode = Html5QrcodeModule.Html5Qrcode;
+      } else {
+        // Try to load it now
+        const module = await import('html5-qrcode');
+        Html5Qrcode = module.Html5Qrcode;
+      }
+      
+      // Check if container exists
+      const container = document.getElementById('scanner-container');
+      if (!container) {
+        setError('Scanner container not found');
         return;
       }
       
@@ -55,13 +75,22 @@ export default function Scanner() {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'environment' } 
         });
-        // Stop the test stream
         stream.getTracks().forEach(track => track.stop());
-      } catch (permError) {
-        setError('Camera permission denied. Please allow camera access in your browser settings.');
-        setScanning(false);
+      } catch (permError: any) {
+        if (permError.name === 'NotAllowedError') {
+          setError('Camera permission denied. Please allow camera access in your browser settings.');
+        } else if (permError.name === 'NotFoundError') {
+          setError('No camera found on this device.');
+        } else {
+          setError('Camera access error: ' + permError.message);
+        }
         return;
       }
+      
+      setScanning(true);
+      
+      // Small delay to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const scanner = new Html5Qrcode('scanner-container');
       scannerRef.current = scanner;
@@ -70,33 +99,37 @@ export default function Scanner() {
         { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
         { 
           fps: 15, 
-          qrbox: { width: 300, height: 150 },
-          aspectRatio: 1.777
+          qrbox: { width: 300, height: 150 }
         },
-        async (decodedText) => {
-          await scanner.stop();
+        async (decodedText: string) => {
+          try {
+            await scanner.stop();
+          } catch (e) {}
           setScanning(false);
           await handleScan(decodedText);
         },
-        (errorMessage) => {
-          // Ignore scan errors - just means no barcode found yet
-        }
+        () => {}
       );
-    } catch (err: unknown) {
-      const e = err as {message?: string, name?: string};
-      console.error('Scanner error:', e);
-      if (e.name === 'NotAllowedError') {
+    } catch (err: any) {
+      console.error('Scanner error:', err);
+      setScanning(false);
+      if (err.message?.includes('NotAllowedError') || err.name === 'NotAllowedError') {
         setError('Camera permission denied. Please allow camera access.');
-      } else if (e.name === 'NotFoundError') {
+      } else if (err.message?.includes('NotFoundError') || err.name === 'NotFoundError') {
         setError('No camera found on this device.');
       } else {
-        setError(e.message || 'Failed to start camera');
+        setError('Failed to start camera: ' + (err.message || 'Unknown error'));
       }
-      setScanning(false);
     }
   };
+
   const stopScanning = async () => {
-    if (scannerRef.current) { await scannerRef.current.stop(); scannerRef.current = null; }
+    try {
+      if (scannerRef.current) {
+        await scannerRef.current.stop();
+        scannerRef.current = null;
+      }
+    } catch (e) {}
     setScanning(false);
   };
 
@@ -116,9 +149,8 @@ export default function Scanner() {
       }
       const data = await response.json();
       setResult(data);
-    } catch (err: unknown) {
-      const e = err as {message?: string};
-      setError(e.message || 'Failed to scan product');
+    } catch (err: any) {
+      setError(err.message || 'Failed to scan product');
     } finally { setLoading(false); }
   };
 
@@ -172,12 +204,11 @@ export default function Scanner() {
           </button>
         </div>
 
-        {/* Scanner */}
         <div style={{ position: 'relative', marginBottom: '20px' }}>
           <div id="scanner-container" style={{ width: '100%', height: scanning ? '300px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none', position: 'relative' }}>
             {scanning && (
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-                <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)', position: 'relative' }}>
+                <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}>
                   <div style={{ position: 'absolute', top: '-3px', left: '-3px', right: '-3px', height: '4px', background: 'linear-gradient(90deg, transparent, #667eea, transparent)', animation: 'scan 2s ease-in-out infinite' }} />
                 </div>
               </div>
