@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, initializeDb } from '@/lib/db';
+import { getDb, initializeDb } from '@/lib/db';
 
 export async function GET() {
   try {
     await initializeDb();
     
-    const scans = await sql`
+    const db = getDb();
+    if (!db) {
+      return NextResponse.json([]);
+    }
+    
+    const scans = await db`
       SELECT * FROM scans 
       ORDER BY scanned_at DESC 
       LIMIT 50
@@ -27,9 +32,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID required' }, { status: 400 });
     }
 
-    await sql`
-      DELETE FROM scans WHERE id = ${parseInt(id)}
-    `;
+    const db = getDb();
+    if (db) {
+      await db`DELETE FROM scans WHERE id = ${parseInt(id)}`;
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

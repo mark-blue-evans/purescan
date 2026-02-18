@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, initializeDb } from '@/lib/db';
+import { getDb, initializeDb } from '@/lib/db';
 
 export async function GET() {
   try {
     await initializeDb();
     
-    const items = await sql`
+    const db = getDb();
+    if (!db) {
+      return NextResponse.json([]);
+    }
+    
+    const items = await db`
       SELECT * FROM grocery_items 
       ORDER BY added_at DESC
     `;
@@ -27,10 +32,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Barcode and name required' }, { status: 400 });
     }
 
-    await sql`
-      INSERT INTO grocery_items (barcode, product_name, purity_score)
-      VALUES (${barcode}, ${productName}, ${purityScore || 0})
-    `;
+    const db = getDb();
+    if (db) {
+      await db`
+        INSERT INTO grocery_items (barcode, product_name, purity_score)
+        VALUES (${barcode}, ${productName}, ${purityScore || 0})
+      `;
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -48,9 +56,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID required' }, { status: 400 });
     }
 
-    await sql`
-      DELETE FROM grocery_items WHERE id = ${parseInt(id)}
-    `;
+    const db = getDb();
+    if (db) {
+      await db`DELETE FROM grocery_items WHERE id = ${parseInt(id)}`;
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
-import { initializeDb } from '@/lib/db';
+import { getDb, initializeDb } from '@/lib/db';
 import { lookupProduct } from '@/lib/openfoodfacts';
 import { calculatePurityScore } from '@/lib/scoring';
 
@@ -34,17 +33,13 @@ export async function POST(request: NextRequest) {
 
     // Save to database
     try {
-      await sql`
-        INSERT INTO scans (barcode, product_name, purity_score, processing_level, ingredients, image_url)
-        VALUES (
-          ${product.barcode},
-          ${product.name},
-          ${scoreResult.score},
-          ${scoreResult.processingLevel},
-          ${JSON.stringify(product.ingredients || [])},
-          ${product.image || null}
-        )
-      `;
+      const db = getDb();
+      if (db) {
+        await db`
+          INSERT INTO scans (barcode, product_name, purity_score, processing_level, ingredients, image_url)
+          VALUES (${product.barcode}, ${product.name}, ${scoreResult.score}, ${scoreResult.processingLevel}, ${JSON.stringify(product.ingredients || [])}, ${product.image || null})
+        `;
+      }
     } catch (saveError) {
       console.error('Error saving scan:', saveError);
       // Continue anyway - product lookup succeeded
