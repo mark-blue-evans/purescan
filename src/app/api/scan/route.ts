@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Calculate purity score
+    // Calculate purity score with enhanced algorithm
     const scoreResult = calculatePurityScore(
       product.ingredients || [],
       product.novaGroup
@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
       nutriments: product.nutriments,
       score: scoreResult.score,
       processingLevel: scoreResult.processingLevel,
-      redFlags: scoreResult.redFlags
+      risks: scoreResult.risks,
+      scoreFactors: scoreResult.scoreFactors
     });
   } catch (error) {
     console.error('Scan error:', error);

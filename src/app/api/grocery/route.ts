@@ -11,14 +11,15 @@ export async function GET() {
     }
     
     const items = await db`
-      SELECT * FROM grocery_items 
+      SELECT id, barcode, product_name, purity_score, added_at 
+      FROM grocery_items 
       ORDER BY added_at DESC
     `;
 
-    return NextResponse.json(items);
+    return NextResponse.json(items || []);
   } catch (error) {
     console.error('Grocery list error:', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

@@ -7,19 +7,21 @@ export async function GET() {
     
     const db = getDb();
     if (!db) {
+      console.error('Database not available');
       return NextResponse.json([]);
     }
     
     const scans = await db`
-      SELECT * FROM scans 
+      SELECT id, barcode, product_name, purity_score, processing_level, image_url, scanned_at 
+      FROM scans 
       ORDER BY scanned_at DESC 
       LIMIT 50
     `;
 
-    return NextResponse.json(scans);
+    return NextResponse.json(scans || []);
   } catch (error) {
     console.error('History error:', error);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }
 

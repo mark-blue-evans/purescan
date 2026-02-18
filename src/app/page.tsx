@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, AlertTriangle, Shield, Zap, Brain, Droplets, Info } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface ProductResult {
@@ -13,7 +13,21 @@ interface ProductResult {
   nutriments?: Record<string, number | undefined>;
   score: number;
   processingLevel: string;
-  redFlags: string[];
+  risks: {
+    seedOils: string[];
+    additives: string[];
+    artificial: string[];
+    pesticides: string[];
+    microplastics: string[];
+    heavyMetals: string[];
+    carcinogens: string[];
+  };
+  scoreFactors: {
+    processing: string;
+    ingredients: string;
+    healthRisks: string;
+    overall: string;
+  };
 }
 
 export default function Scanner() {
@@ -52,9 +66,10 @@ export default function Scanner() {
           setScanning(false);
           await handleScan(decodedText);
         },
-        () => {} // Ignore errors during scanning
+        () => {}
       );
-    } catch (err) { const error = err as Error; 
+    } catch (err: unknown) {
+      const error = err as {message?: string};
       setError(error.message || 'Camera access denied');
       setScanning(false);
     }
@@ -87,7 +102,8 @@ export default function Scanner() {
 
       const data = await response.json();
       setResult(data);
-    } catch (err) { const error = err as Error; 
+    } catch (err: unknown) {
+      const error = err as {message?: string};
       setError(error.message || 'Failed to scan product');
     } finally {
       setLoading(false);
@@ -107,16 +123,6 @@ export default function Scanner() {
     return '#EF4444';
   };
 
-  const getProcessingLabel = (level: string) => {
-    const labels: Record<string, string> = {
-      minimal: 'Minimally Processed',
-      low: 'Low Processed',
-      medium: 'Medium Processed',
-      ultra: 'Ultra Processed',
-    };
-    return labels[level] || level;
-  };
-
   const addToGrocery = async () => {
     if (!result) return;
     
@@ -131,6 +137,23 @@ export default function Scanner() {
     });
     
     alert('Added to grocery list!');
+  };
+
+  const RiskSection = ({ title, items, color, icon: Icon }: { title: string, items: string[], color: string, icon: any }) => {
+    if (items.length === 0) return null;
+    return (
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <Icon size={16} color={color} />
+          <span style={{ fontWeight: 600, color, fontSize: '14px' }}>{title}</span>
+        </div>
+        {items.map((item, i) => (
+          <p key={i} style={{ color: '#A1A1AA', fontSize: '13px', marginBottom: '4px', paddingLeft: '24px' }}>
+            • {item}
+          </p>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -329,13 +352,16 @@ export default function Scanner() {
             <p style={{ color: '#A1A1AA', marginBottom: '16px' }}>{result.brand}</p>
           )}
 
-          {/* Score */}
+          {/* Main Score */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '16px',
               marginBottom: '16px',
+              padding: '16px',
+              background: '#27272A',
+              borderRadius: '12px',
             }}
           >
             <div
@@ -355,41 +381,75 @@ export default function Scanner() {
               {result.score}
             </div>
             <div>
-              <p style={{ fontWeight: 600, fontSize: '18px' }}>Purity Score</p>
-              <p
-                style={{
-                  color: getScoreColor(result.score),
-                  fontWeight: 500,
-                }}
-              >
-                {getProcessingLabel(result.processingLevel)}
+              <p style={{ fontWeight: 600, fontSize: '16px' }}>Purity Score</p>
+              <p style={{ color: getScoreColor(result.score), fontWeight: 500, fontSize: '14px' }}>
+                {result.processingLevel}
               </p>
             </div>
           </div>
 
-          {/* Red Flags */}
-          {result.redFlags.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
-              <p style={{ fontWeight: 600, marginBottom: '8px', color: '#EF4444' }}>
-                ⚠️ Concerns
-              </p>
-              {result.redFlags.map((flag, i) => (
-                <p
-                  key={i}
-                  style={{
-                    color: '#A1A1AA',
-                    fontSize: '14px',
-                    marginBottom: '4px',
-                  }}
-                >
-                  • {flag}
-                </p>
-              ))}
-            </div>
-          )}
+          {/* Score Factors */}
+          <div style={{ marginBottom: '20px' }}>
+            <p style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px', color: '#A1A1AA' }}>
+              {result.scoreFactors?.overall}
+            </p>
+            <p style={{ fontSize: '13px', color: '#71717A', marginBottom: '4px' }}>
+              {result.scoreFactors?.processing}
+            </p>
+            <p style={{ fontSize: '13px', color: '#71717A', marginBottom: '4px' }}>
+              {result.scoreFactors?.ingredients}
+            </p>
+            <p style={{ fontSize: '13px', color: '#71717A' }}>
+              {result.scoreFactors?.healthRisks}
+            </p>
+          </div>
+
+          {/* Risk Sections */}
+          <div style={{ borderTop: '1px solid #27272A', paddingTop: '16px' }}>
+            <p style={{ fontWeight: 600, marginBottom: '16px', fontSize: '16px' }}>
+              Health Risk Analysis
+            </p>
+
+            <RiskSection 
+              title="⚠️ Cancer Risk" 
+              items={result.risks?.carcinogens || []} 
+              color="#DC2626"
+              icon={AlertTriangle}
+            />
+            <RiskSection 
+              title="🔬 Heavy Metals" 
+              items={result.risks?.heavyMetals || []} 
+              color="#7C3AED"
+              icon={Brain}
+            />
+            <RiskSection 
+              title="🧪 Pesticides" 
+              items={result.risks?.pesticides || []} 
+              color="#059669"
+              icon={Droplets}
+            />
+            <RiskSection 
+              title="🧴 Microplastics" 
+              items={result.risks?.microplastics || []} 
+              color="#0891B2"
+              icon={Shield}
+            />
+            <RiskSection 
+              title="🛢️ Seed Oils" 
+              items={result.risks?.seedOils || []} 
+              color="#F59E0B"
+              icon={Zap}
+            />
+            <RiskSection 
+              title="⚗️ Additives" 
+              items={[...(result.risks?.additives || []), ...(result.risks?.artificial || [])]} 
+              color="#EF4444"
+              icon={Info}
+            />
+          </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
             <button
               onClick={addToGrocery}
               style={{

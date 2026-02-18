@@ -25,21 +25,29 @@ export async function initializeDb() {
     return;
   }
 
-  // Create tables if they don't exist
+  // Create tables if they don't exist - use IF NOT EXISTS
   try {
     await db`CREATE TABLE IF NOT EXISTS scans (id SERIAL PRIMARY KEY, barcode VARCHAR(50), product_name TEXT, purity_score INTEGER, processing_level TEXT, ingredients JSONB, image_url TEXT, scanned_at TIMESTAMP DEFAULT NOW())`;
   } catch (e) {
-    // Table might already exist
+    console.log('Scans table might already exist:', e);
   }
 
   try {
     await db`CREATE TABLE IF NOT EXISTS grocery_items (id SERIAL PRIMARY KEY, barcode VARCHAR(50), product_name TEXT, purity_score INTEGER, added_at TIMESTAMP DEFAULT NOW())`;
   } catch (e) {
-    // Table might already exist
+    console.log('Grocery table might already exist:', e);
   }
 
   console.log('Database initialized');
 }
 
-// Use tagged template directly via getSqlInstance
+// Direct query helper
+export async function runQuery(query: string, params: unknown[] = []) {
+  const db = getSqlInstance();
+  if (!db) {
+    throw new Error('Database not configured');
+  }
+  return db.query(query, params);
+}
+
 export const getDb = getSqlInstance;

@@ -1,11 +1,17 @@
-// Purity Score Algorithm
-// Score out of 100 based on multiple factors
+// Enhanced Purity Score Algorithm
+// Score out of 100 based on multiple health factors
 
 interface IngredientAnalysis {
   seedOils: string[];
   additives: string[];
   artificialIngredients: string[];
   addedSugars: string[];
+  pesticides: string[];
+  microplastics: string[];
+  heavyMetals: string[];
+  carcinogens: string[];
+  hormones: string[];
+  commonAllergens: string[];
 }
 
 interface ScoreResult {
@@ -17,37 +23,84 @@ interface ScoreResult {
     additivesPenalty: number;
     artificialPenalty: number;
     sugarPenalty: number;
+    pesticidePenalty: number;
+    microplasticPenalty: number;
+    heavyMetalPenalty: number;
+    carcinogenPenalty: number;
     cleanBonus: number;
   };
-  redFlags: string[];
+  risks: {
+    seedOils: string[];
+    additives: string[];
+    artificial: string[];
+    pesticides: string[];
+    microplastics: string[];
+    heavyMetals: string[];
+    carcinogens: string[];
+  };
+  scoreFactors: {
+    processing: string;
+    ingredients: string;
+    healthRisks: string;
+    overall: string;
+  };
 }
 
-// Known harmful ingredients
+// Known harmful ingredients databases
 const SEED_OILS = [
   'canola oil', 'rapeseed oil', 'sunflower oil', 'safflower oil',
   'corn oil', 'soybean oil', 'vegetable oil', 'palm oil',
-  'palm kernel oil', 'cottonseed oil', 'grapeseed oil', 'rice bran oil'
+  'palm kernel oil', 'cottonseed oil', 'grapeseed oil', 'rice bran oil',
+  'sesame oil', 'peanut oil', 'margarine', 'shortening'
 ];
 
 const ARTIFICIAL_INGREDIENTS = [
   'artificial flavor', 'artificial colour', 'artificial sweetener',
   'aspartame', 'saccharin', 'sucralose', 'acesulfame', 'neotame',
   'advantame', 'monosodium glutamate', 'msg', 'bha', 'bht',
-  'tbhq', 'propyl gallate', 'sodium nitrite', 'sodium nitrate'
+  'tbhq', 'propyl gallate', 'sodium nitrite', 'sodium nitrate',
+  'red 40', 'yellow 5', 'yellow 6', 'blue 1', 'caramel color',
+  'sodium benzoate', 'potassium sorbate', 'sodium metabisulfite'
 ];
 
-const ADDITIVES = [
-  'emulsifier', 'stabilizer', 'thickener', 'gelling agent',
-  'preservative', 'antioxidant', 'colouring', 'flavour enhancer',
-  'sweetener', 'acid regulator', 'anti-caking agent', 'bulking agent',
-  'carrier', ' glazing agent', 'humectant', 'sequestrant', 'buffer'
+// Carcinogens and potential cancer-causing ingredients
+const CARCINOGENS = [
+  'sodium nitrite', 'sodium nitrate', 'bha', 'bht', 'tbhq',
+  'propyle gallate', 'diacetyl', 'potassium bromate', 'bromated flour',
+  'saccharin', 'cyclamate', 'caramel color (ammonia process)',
+  'bisphenol a', 'bpa', 'phthalates', 'parabens'
+];
+
+// Pesticides commonly found in food
+const PESTICIDES = [
+  'glyphosate', 'chlorpyrifos', 'malathion', 'carbaryl',
+  'atrazine', 'mancozeb', 'chlorothalonil', 'pyrethroids',
+  'organophosphates', 'neonicotinoids', 'fipronil'
+];
+
+// Heavy metals (contamination risk)
+const HEAVY_METALS = [
+  'lead', 'arsenic', 'mercury', 'cadmium', 'chromium'
+];
+
+// Microplastics (packaging/processing contamination)
+const MICROPLASTICS = [
+  'polyethylene', 'polypropylene', 'polyester', 'nylon',
+  'plastic', 'microplastic'
 ];
 
 const ADDED_SUGARS = [
   'sugar', 'sucrose', 'glucose', 'fructose', 'corn syrup',
   'high fructose corn syrup', 'agave', 'maple syrup', 'molasses',
   'honey', 'cane juice', 'cane sugar', 'dextrose', 'maltose',
-  'lactose', 'galactose', 'invert sugar', 'rice syrup'
+  'lactose', 'galactose', 'invert sugar', 'rice syrup', 'maltodextrin'
+];
+
+const COMMON_ALLERGENS = [
+  'milk', 'casein', 'whey', 'lactose', 'egg', 'albumin',
+  'peanut', 'tree nut', 'almond', 'walnut', 'cashew',
+  'wheat', 'gluten', 'soy', 'soybean', 'fish', 'shellfish',
+  'sesame', 'mustard', 'celery', 'lupin', 'mollusc'
 ];
 
 export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
@@ -57,8 +110,12 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
     lowerIngredients.some(i => i.includes(oil))
   );
   
-  const additives = ADDITIVES.filter(add => 
-    lowerIngredients.some(i => i.includes(add))
+  const additives = lowerIngredients.filter(i => 
+    i.includes('emulsifier') || i.includes('stabilizer') || 
+    i.includes('thickener') || i.includes('preservative') ||
+    i.includes('antioxidant') || i.includes('colouring') ||
+    i.includes('flavour') || i.includes('sweetener') ||
+    i.includes('acid') || i.includes('regulator')
   );
   
   const artificialIngredients = ARTIFICIAL_INGREDIENTS.filter(art => 
@@ -69,7 +126,38 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
     lowerIngredients.some(i => i.includes(sugar))
   );
 
-  return { seedOils, additives, artificialIngredients, addedSugars };
+  const pesticides = PESTICIDES.filter(pest => 
+    lowerIngredients.some(i => i.includes(pest))
+  );
+
+  const heavyMetals = HEAVY_METALS.filter(metal => 
+    lowerIngredients.some(i => i.includes(metal))
+  );
+
+  const microplastics = MICROPLASTICS.filter(plastic => 
+    lowerIngredients.some(i => i.includes(plastic))
+  );
+
+  const carcinogens = CARCINOGENS.filter(carc => 
+    lowerIngredients.some(i => i.includes(carc))
+  );
+
+  const commonAllergens = COMMON_ALLERGENS.filter(allergen => 
+    lowerIngredients.some(i => i.includes(allergen))
+  );
+
+  return { 
+    seedOils, 
+    additives, 
+    artificialIngredients, 
+    addedSugars,
+    pesticides,
+    microplastics,
+    heavyMetals,
+    carcinogens,
+    hormones: [],
+    commonAllergens
+  };
 }
 
 export function calculatePurityScore(
@@ -83,9 +171,22 @@ export function calculatePurityScore(
     additivesPenalty: 0,
     artificialPenalty: 0,
     sugarPenalty: 0,
+    pesticidePenalty: 0,
+    microplasticPenalty: 0,
+    heavyMetalPenalty: 0,
+    carcinogenPenalty: 0,
     cleanBonus: 0
   };
-  const redFlags: string[] = [];
+
+  const risks = {
+    seedOils: [] as string[],
+    additives: [] as string[],
+    artificial: [] as string[],
+    pesticides: [] as string[],
+    microplastics: [] as string[],
+    heavyMetals: [] as string[],
+    carcinogens: [] as string[]
+  };
 
   const analysis = analyzeIngredients(ingredients);
 
@@ -93,28 +194,56 @@ export function calculatePurityScore(
   if (analysis.seedOils.length > 0) {
     breakdown.seedOilsPenalty = analysis.seedOils.length * 15;
     score -= breakdown.seedOilsPenalty;
-    redFlags.push(...analysis.seedOils.map(o => `Contains ${o}`));
+    risks.seedOils = analysis.seedOils.map(o => `Contains ${o}`);
   }
 
   // Additives penalty (-5 per additive)
   if (analysis.additives.length > 0) {
-    breakdown.additivesPenalty = Math.min(analysis.additives.length * 5, 25);
+    breakdown.additivesPenalty = Math.min(analysis.additives.length * 5, 30);
     score -= breakdown.additivesPenalty;
-    redFlags.push(`${analysis.additives.length} additives detected`);
+    risks.additives = [`${analysis.additives.length} additives detected`];
   }
 
   // Artificial ingredients penalty (-10 per artificial)
   if (analysis.artificialIngredients.length > 0) {
     breakdown.artificialPenalty = analysis.artificialIngredients.length * 10;
     score -= breakdown.artificialPenalty;
-    redFlags.push(...analysis.artificialIngredients.map(a => `Contains ${a}`));
+    risks.artificial = analysis.artificialIngredients.map(a => `Contains ${a}`);
   }
 
   // Added sugars penalty (-10 if high)
   if (analysis.addedSugars.length > 0) {
     breakdown.sugarPenalty = 10;
     score -= breakdown.sugarPenalty;
-    redFlags.push('Added sugars detected');
+    risks.artificial.push('Added sugars detected');
+  }
+
+  // Pesticide risk (-20 if detected)
+  if (analysis.pesticides.length > 0) {
+    breakdown.pesticidePenalty = analysis.pesticides.length * 20;
+    score -= breakdown.pesticidePenalty;
+    risks.pesticides = analysis.pesticides.map(p => `Potential pesticide: ${p}`);
+  }
+
+  // Microplastic risk (-15 if detected)
+  if (analysis.microplastics.length > 0) {
+    breakdown.microplasticPenalty = analysis.microplastics.length * 15;
+    score -= breakdown.microplasticPenalty;
+    risks.microplastics = analysis.microplastics.map(m => `Microplastic risk: ${m}`);
+  }
+
+  // Heavy metal risk (-25 if detected)
+  if (analysis.heavyMetals.length > 0) {
+    breakdown.heavyMetalPenalty = analysis.heavyMetals.length * 25;
+    score -= breakdown.heavyMetalPenalty;
+    risks.heavyMetals = analysis.heavyMetals.map(m => `Heavy metal risk: ${m}`);
+  }
+
+  // Carcinogen risk (-25 per carcinogen)
+  if (analysis.carcinogens.length > 0) {
+    breakdown.carcinogenPenalty = analysis.carcinogens.length * 25;
+    score -= breakdown.carcinogenPenalty;
+    risks.carcinogens = analysis.carcinogens.map(c => `Potential carcinogen: ${c}`);
   }
 
   // Clean label bonus (+10 if 5 ingredients or less)
@@ -127,7 +256,6 @@ export function calculatePurityScore(
   let processingLevel: 'minimal' | 'low' | 'medium' | 'ultra' = 'minimal';
   if (novaCategory) {
     if (novaCategory === 1) {
-      // Unprocessed - keep score
       processingLevel = 'minimal';
     } else if (novaCategory === 2) {
       score -= 10;
@@ -144,12 +272,51 @@ export function calculatePurityScore(
   // Clamp score between 0 and 100
   score = Math.max(0, Math.min(100, score));
 
+  // Generate score factors
+  const scoreFactors = {
+    processing: getProcessingDescription(processingLevel, novaCategory),
+    ingredients: getIngredientDescription(ingredients.length, analysis),
+    healthRisks: getHealthRiskDescription(risks),
+    overall: getOverallDescription(score)
+  };
+
   return {
     score,
     processingLevel,
     breakdown,
-    redFlags
+    risks,
+    scoreFactors
   };
+}
+
+function getProcessingDescription(level: string, _novaCategory?: number): string {
+  if (level === 'minimal') return 'Minimally processed - whole food';
+  if (level === 'low') return 'Lightly processed - some processing';
+  if (level === 'medium') return 'Ultra-processed - many additives';
+  return 'Highly processed - avoid if possible';
+}
+
+function getIngredientDescription(count: number, _analysis: IngredientAnalysis): string {
+  if (count <= 5) return 'Short ingredient list - clean label';
+  if (count <= 10) return 'Moderate ingredient count';
+  if (count > 20) return 'Long ingredient list - highly processed';
+  return 'Extended ingredient list';
+}
+
+function getHealthRiskDescription(risks: { carcinogens: string[], heavyMetals: string[], pesticides: string[], microplastics: string[] }): string {
+  const riskCount = risks.carcinogens.length + risks.heavyMetals.length + 
+                    risks.pesticides.length + risks.microplastics.length;
+  if (riskCount === 0) return 'No major health risks detected';
+  if (riskCount <= 2) return 'Some concerns - review details';
+  return 'Multiple health risks detected';
+}
+
+function getOverallDescription(score: number): string {
+  if (score >= 80) return 'Excellent choice - clean & healthy';
+  if (score >= 60) return 'Good option - mostly clean';
+  if (score >= 40) return 'Moderate - use occasionally';
+  if (score >= 20) return 'Poor choice - many concerns';
+  return 'Avoid if possible - significant health risks';
 }
 
 export function getScoreColor(score: number): string {
@@ -162,4 +329,14 @@ export function getScoreLabel(score: number): string {
   if (score >= 70) return 'Good';
   if (score >= 40) return 'Moderate';
   return 'Poor';
+}
+
+export function getProcessingLevelLabel(level: string): string {
+  const labels: Record<string, string> = {
+    minimal: 'Minimally Processed',
+    low: 'Low Processed', 
+    medium: 'Medium Processed',
+    ultra: 'Ultra Processed'
+  };
+  return labels[level] || level;
 }
