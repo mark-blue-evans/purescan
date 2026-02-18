@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2, Heart, Plus, Search, ShoppingBag } from 'lucide-react';
+import { Camera, Loader2, Heart, Search, ShoppingBag } from 'lucide-react';
 import { getCountryFlag } from '@/lib/openfoodfacts';
 
 interface ProductResult {
@@ -30,27 +30,31 @@ export default function Scanner() {
   const [result, setResult] = useState<ProductResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState('');
-  const scannerRef = useRef<any>(null);
   const [showManualInput, setShowManualInput] = useState(false);
+  const scannerRef = useRef<any>(null);
+  const videoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    return () => { if (scannerRef.current) scannerRef.current.stop().catch(() => {}); };
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop();
+      }
+    };
   }, []);
 
   const startScanning = async () => {
     try {
       setError(null);
       
-      // First check/request camera permission
+      // Check camera permission first
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'environment' } 
         });
-        // Stop test stream
         stream.getTracks().forEach(track => track.stop());
       } catch (permErr: any) {
         if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
-          setError('Camera permission denied. Please allow camera access in your browser settings, then refresh.');
+          setError('Camera permission denied. Please allow camera access in your browser settings.');
         } else if (permErr.name === 'NotFoundError') {
           setError('No camera found on this device.');
         } else {
@@ -61,37 +65,70 @@ export default function Scanner() {
       
       setScanning(true);
       
+      // Dynamically import quagga2
+      const Quagga = (await import('@ericblade/quagga2')).default;
+      
       // Give DOM time to update
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Dynamic import to avoid SSR issues
-      const { Html5Qrcode } = await import('html5-qrcode');
+      if (!videoRef.current) {
+        setError('Scanner not ready. Please try again.');
+        setScanning(false);
+        return;
+      }
       
-      const scanner = new Html5Qrcode('scanner-container');
-      scannerRef.current = scanner;
-      await scanner.start(
-        { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        { fps: 15, qrbox: { width: 300, height: 150 } },
-        async (decodedText) => {
-          await scanner.stop();
+      await new Promise<void>((resolve, reject) => {
+        Quagga.init({
+          inputStream: {
+            type: 'LiveStream',
+            target: videoRef.current!,
+            constraints: {
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          },
+          decoder: {
+            readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader']
+          },
+          locate: true
+        }, (err: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      
+      scannerRef.current = Quagga;
+      
+      Quagga.onDetected(async (data: any) => {
+        if (data && data.codeResult && data.codeResult.code) {
+          Quagga.stop();
           setScanning(false);
-          await handleScan(decodedText);
-        },
-        () => {} // Ignore scan errors
-      );
-    } catch (err: unknown) {
-      const e = err as {message?: string, name?: string};
+          await handleScan(data.codeResult.code);
+        }
+      });
+      
+    } catch (err: any) {
+      console.error('Scanner error:', err);
       setScanning(false);
-      if (e.name === 'NotAllowedError') {
-        setError('Camera permission denied. Please allow camera access.');
+      if (err.name === 'NotAllowedError') {
+        setError('Camera permission denied.');
       } else {
-        setError('Camera error: ' + (e.message || 'Failed to start'));
+        setError('Failed to start camera: ' + (err.message || 'Unknown error'));
       }
     }
   };
 
-  const stopScanning = async () => {
-    if (scannerRef.current) { await scannerRef.current.stop(); scannerRef.current = null; }
+  const stopScanning = () => {
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.stop();
+      } catch (e) {}
+      scannerRef.current = null;
+    }
     setScanning(false);
   };
 
@@ -111,9 +148,8 @@ export default function Scanner() {
       }
       const data = await response.json();
       setResult(data);
-    } catch (err: unknown) {
-      const e = err as {message?: string};
-      setError(e.message || 'Failed to scan product');
+    } catch (err: any) {
+      setError(err.message || 'Failed to scan product');
     } finally { setLoading(false); }
   };
 
@@ -167,9 +203,8 @@ export default function Scanner() {
           </button>
         </div>
 
-        {/* Scanner */}
         <div style={{ position: 'relative', marginBottom: '20px' }}>
-          <div id="scanner-container" style={{ width: '100%', height: scanning ? '280px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none', position: 'relative' }}>
+          <div ref={videoRef} style={{ width: '100%', height: scanning ? '280px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none', position: 'relative' }}>
             {scanning && (
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, pointerEvents: 'none' }}>
                 <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}>
@@ -267,7 +302,10 @@ export default function Scanner() {
         )}
       </div>
 
-      <style jsx global>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes scan { 0%, 100% { top: -3px; } 50% { top: calc(100% - 1px); } }`}</style>
+      <style jsx global>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes scan { 0%, 100% { top: -3px; } 50% { top: calc(100% - 1px); } }
+      `}</style>
     </div>
   );
 }
