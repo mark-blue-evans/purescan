@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2, Heart, Search, ShoppingBag } from 'lucide-react';
+import { Camera, Loader2, Heart, Plus, Search, ShoppingBag } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { getCountryFlag } from '@/lib/openfoodfacts';
 
 interface ProductResult {
@@ -30,100 +31,65 @@ export default function Scanner() {
   const [result, setResult] = useState<ProductResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState('');
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [showManualInput, setShowManualInput] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<any>(null);
 
   useEffect(() => {
-    return () => {
-      stopCamera();
-    };
+    return () => { if (scannerRef.current) scannerRef.current.stop().catch(() => {}); };
   }, []);
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
 
   const startScanning = async () => {
     try {
       setError(null);
       
-      // Check for BarcodeDetector support
-      if (!('BarcodeDetector' in window)) {
-        // Fallback - use manual entry
-        setError('Barcode scanning not supported on this browser. Please use manual search.');
+      // First check/request camera permission
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        // Stop test stream
+        stream.getTracks().forEach(track => track.stop());
+      } catch (permErr: any) {
+        if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
+          setError('Camera permission denied. Please allow camera access in your browser settings, then refresh.');
+        } else if (permErr.name === 'NotFoundError') {
+          setError('No camera found on this device.');
+        } else {
+          setError('Camera error: ' + permErr.message);
+        }
         return;
       }
       
-      // Get camera stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
-      
-      streamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      
-      // Create barcode detector
-      const detector = new (window as any).BarcodeDetector({
-        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
-      });
-      
-      detectorRef.current = detector;
       setScanning(true);
       
-      // Start scanning loop
-      scanFrame();
+      // Give DOM time to update
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-    } catch (err: any) {
-      console.error('Camera error:', err);
-      if (err.name === 'NotAllowedError') {
+      const scanner = new Html5Qrcode('scanner-container');
+      scannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 280, height: 160 } },
+        async (decodedText) => {
+          await scanner.stop();
+          setScanning(false);
+          await handleScan(decodedText);
+        },
+        () => {} // Ignore scan errors
+      );
+    } catch (err: unknown) {
+      const e = err as {message?: string, name?: string};
+      setScanning(false);
+      if (e.name === 'NotAllowedError') {
         setError('Camera permission denied. Please allow camera access.');
-      } else if (err.name === 'NotFoundError') {
-        setError('No camera found on this device.');
       } else {
-        setError('Failed to start camera: ' + err.message);
+        setError('Camera error: ' + (e.message || 'Failed to start'));
       }
     }
   };
 
-  const scanFrame = async () => {
-    if (!scanning || !videoRef.current || !detectorRef.current) return;
-    
-    try {
-      const barcodes = await detectorRef.current.detect(videoRef.current);
-      
-      if (barcodes && barcodes.length > 0) {
-        const barcode = barcodes[0].rawValue;
-        // Found a barcode!
-        stopCamera();
-        setScanning(false);
-        await handleScan(barcode);
-        return;
-      }
-    } catch (err) {
-      console.error('Scan error:', err);
-    }
-    
-    // Continue scanning if still active
-    if (scanning) {
-      requestAnimationFrame(scanFrame);
-    }
-  };
-
-  const stopScanning = () => {
-    stopCamera();
+  const stopScanning = async () => {
+    if (scannerRef.current) { await scannerRef.current.stop(); scannerRef.current = null; }
     setScanning(false);
   };
 
@@ -143,8 +109,9 @@ export default function Scanner() {
       }
       const data = await response.json();
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to scan product');
+    } catch (err: unknown) {
+      const e = err as {message?: string};
+      setError(e.message || 'Failed to scan product');
     } finally { setLoading(false); }
   };
 
@@ -198,17 +165,9 @@ export default function Scanner() {
           </button>
         </div>
 
+        {/* Scanner */}
         <div style={{ position: 'relative', marginBottom: '20px' }}>
-          {/* Camera View */}
-          <div style={{ width: '100%', height: scanning ? '300px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', position: 'relative', display: scanning ? 'block' : 'none' }}>
-            <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted />
-            {/* Scan overlay */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}>
-                <div style={{ position: 'absolute', top: '-3px', left: '-3px', right: '-3px', height: '4px', background: 'linear-gradient(90deg, transparent, #667eea, transparent)', animation: 'scan 2s ease-in-out infinite' }} />
-              </div>
-            </div>
-          </div>
+          <div id="scanner-container" style={{ width: '100%', height: scanning ? '280px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none' }} />
           
           {!scanning && !loading && !result && (
             <div style={{ textAlign: 'center', padding: '30px 20px', background: '#16161c', borderRadius: '20px', border: '2px dashed #2a2a35' }}>
@@ -298,10 +257,7 @@ export default function Scanner() {
         )}
       </div>
 
-      <style jsx global>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes scan { 0%, 100% { top: -3px; } 50% { top: calc(100% - 1px); } }
-      `}</style>
+      <style jsx global>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
