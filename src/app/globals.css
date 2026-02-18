@@ -2,12 +2,14 @@
 
 :root {
   --background: #0A0A0B;
-  --card: #18181B;
-  --primary: #10B981;
+  --card: #16161f;
+  --primary: #667eea;
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
-  --text-primary: #FAFAFA;
-  --text-secondary: #A1A1AA;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
   --border: #27272A;
 }
 
@@ -20,17 +22,45 @@
 html, body {
   max-width: 100vw;
   overflow-x: hidden;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--background);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   min-height: 100vh;
-  padding-bottom: 80px;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+input, button {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Hide scrollbar but keep functionality */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }

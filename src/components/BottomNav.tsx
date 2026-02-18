@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { ScanBarcode, Clock, ShoppingCart } from 'lucide-react';
+import { ScanBarcode, Clock, ShoppingCart, User } from 'lucide-react';
 import Link from 'next/link';
 
 const navItems = [
@@ -19,8 +19,8 @@ export default function BottomNav() {
       bottom: 0,
       left: 0,
       right: 0,
-      background: '#18181B',
-      borderTop: '1px solid #27272A',
+      background: '#16161f',
+      borderTop: '1px solid #222',
       display: 'flex',
       justifyContent: 'space-around',
       padding: '12px 0',
@@ -38,12 +38,19 @@ export default function BottomNav() {
               flexDirection: 'column',
               alignItems: 'center',
               gap: '4px',
-              color: isActive ? '#10B981' : '#A1A1AA',
-              transition: 'color 0.2s',
+              color: isActive ? '#667eea' : '#666',
+              transition: 'all 0.2s',
+              textDecoration: 'none'
             }}
           >
-            <item.icon size={24} />
-            <span style={{ fontSize: '12px', fontWeight: 500 }}>{item.label}</span>
+            <div style={{
+              padding: '8px',
+              borderRadius: '12px',
+              background: isActive ? 'rgba(102, 126, 234, 0.15)' : 'transparent'
+            }}>
+              <item.icon size={22} />
+            </div>
+            <span style={{ fontSize: '11px', fontWeight: 500 }}>{item.label}</span>
           </Link>
         );
       })}
