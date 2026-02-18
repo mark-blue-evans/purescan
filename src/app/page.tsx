@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2, Heart, Plus, Search, ShoppingBag } from 'lucide-react';
+import { Camera, Loader2, Heart, Search, ShoppingBag } from 'lucide-react';
 import { getCountryFlag } from '@/lib/openfoodfacts';
 
 interface ProductResult {
@@ -30,106 +30,100 @@ export default function Scanner() {
   const [result, setResult] = useState<ProductResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState('');
-  const scannerRef = useRef<any>(null);
   const [showManualInput, setShowManualInput] = useState(false);
-  const [Html5QrcodeModule, setHtml5QrcodeModule] = useState<any>(null);
-
-  // Load html5-qrcode only on client side
-  useEffect(() => {
-    import('html5-qrcode').then((module) => {
-      setHtml5QrcodeModule(module);
-    });
-  }, []);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<any>(null);
 
   useEffect(() => {
-    return () => { 
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {}); 
-      }
+    return () => {
+      stopCamera();
     };
   }, []);
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
 
   const startScanning = async () => {
     try {
       setError(null);
       
-      // Check if html5-qrcode is loaded
-      let Html5Qrcode;
-      if (Html5QrcodeModule) {
-        Html5Qrcode = Html5QrcodeModule.Html5Qrcode;
-      } else {
-        // Try to load it now
-        const module = await import('html5-qrcode');
-        Html5Qrcode = module.Html5Qrcode;
-      }
-      
-      // Check if container exists
-      const container = document.getElementById('scanner-container');
-      if (!container) {
-        setError('Scanner container not found');
+      // Check for BarcodeDetector support
+      if (!('BarcodeDetector' in window)) {
+        // Fallback - use manual entry
+        setError('Barcode scanning not supported on this browser. Please use manual search.');
         return;
       }
       
-      // Request camera permission first
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
-        });
-        stream.getTracks().forEach(track => track.stop());
-      } catch (permError: any) {
-        if (permError.name === 'NotAllowedError') {
-          setError('Camera permission denied. Please allow camera access in your browser settings.');
-        } else if (permError.name === 'NotFoundError') {
-          setError('No camera found on this device.');
-        } else {
-          setError('Camera access error: ' + permError.message);
+      // Get camera stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
-        return;
+      });
+      
+      streamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
       
+      // Create barcode detector
+      const detector = new (window as any).BarcodeDetector({
+        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
+      });
+      
+      detectorRef.current = detector;
       setScanning(true);
       
-      // Small delay to ensure DOM is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Start scanning loop
+      scanFrame();
       
-      const scanner = new Html5Qrcode('scanner-container');
-      scannerRef.current = scanner;
-      
-      await scanner.start(
-        { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        { 
-          fps: 15, 
-          qrbox: { width: 300, height: 150 }
-        },
-        async (decodedText: string) => {
-          try {
-            await scanner.stop();
-          } catch (e) {}
-          setScanning(false);
-          await handleScan(decodedText);
-        },
-        () => {}
-      );
     } catch (err: any) {
-      console.error('Scanner error:', err);
-      setScanning(false);
-      if (err.message?.includes('NotAllowedError') || err.name === 'NotAllowedError') {
+      console.error('Camera error:', err);
+      if (err.name === 'NotAllowedError') {
         setError('Camera permission denied. Please allow camera access.');
-      } else if (err.message?.includes('NotFoundError') || err.name === 'NotFoundError') {
+      } else if (err.name === 'NotFoundError') {
         setError('No camera found on this device.');
       } else {
-        setError('Failed to start camera: ' + (err.message || 'Unknown error'));
+        setError('Failed to start camera: ' + err.message);
       }
     }
   };
 
-  const stopScanning = async () => {
+  const scanFrame = async () => {
+    if (!scanning || !videoRef.current || !detectorRef.current) return;
+    
     try {
-      if (scannerRef.current) {
-        await scannerRef.current.stop();
-        scannerRef.current = null;
+      const barcodes = await detectorRef.current.detect(videoRef.current);
+      
+      if (barcodes && barcodes.length > 0) {
+        const barcode = barcodes[0].rawValue;
+        // Found a barcode!
+        stopCamera();
+        setScanning(false);
+        await handleScan(barcode);
+        return;
       }
-    } catch (e) {}
+    } catch (err) {
+      console.error('Scan error:', err);
+    }
+    
+    // Continue scanning if still active
+    if (scanning) {
+      requestAnimationFrame(scanFrame);
+    }
+  };
+
+  const stopScanning = () => {
+    stopCamera();
     setScanning(false);
   };
 
@@ -205,14 +199,15 @@ export default function Scanner() {
         </div>
 
         <div style={{ position: 'relative', marginBottom: '20px' }}>
-          <div id="scanner-container" style={{ width: '100%', height: scanning ? '300px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none', position: 'relative' }}>
-            {scanning && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-                <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}>
-                  <div style={{ position: 'absolute', top: '-3px', left: '-3px', right: '-3px', height: '4px', background: 'linear-gradient(90deg, transparent, #667eea, transparent)', animation: 'scan 2s ease-in-out infinite' }} />
-                </div>
+          {/* Camera View */}
+          <div style={{ width: '100%', height: scanning ? '300px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', position: 'relative', display: scanning ? 'block' : 'none' }}>
+            <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} playsInline muted />
+            {/* Scan overlay */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}>
+                <div style={{ position: 'absolute', top: '-3px', left: '-3px', right: '-3px', height: '4px', background: 'linear-gradient(90deg, transparent, #667eea, transparent)', animation: 'scan 2s ease-in-out infinite' }} />
               </div>
-            )}
+            </div>
           </div>
           
           {!scanning && !loading && !result && (
