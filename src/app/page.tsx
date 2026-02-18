@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Camera, Loader2, Heart, Plus, Search, ShoppingBag } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { getCountryFlag } from '@/lib/openfoodfacts';
 
 interface ProductResult {
@@ -31,7 +30,7 @@ export default function Scanner() {
   const [result, setResult] = useState<ProductResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState('');
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<any>(null);
   const [showManualInput, setShowManualInput] = useState(false);
 
   useEffect(() => {
@@ -63,7 +62,10 @@ export default function Scanner() {
       setScanning(true);
       
       // Give DOM time to update
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Dynamic import to avoid SSR issues
+      const { Html5Qrcode } = await import('html5-qrcode');
       
       const scanner = new Html5Qrcode('scanner-container');
       scannerRef.current = scanner;
