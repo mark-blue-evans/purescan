@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Loader2, Heart, Search, ShoppingBag } from 'lucide-react';
+import { Camera, Loader2, Heart, Plus, Search, ShoppingBag } from 'lucide-react';
 import { getCountryFlag } from '@/lib/openfoodfacts';
 
 interface ProductResult {
@@ -30,31 +30,27 @@ export default function Scanner() {
   const [result, setResult] = useState<ProductResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState('');
-  const [showManualInput, setShowManualInput] = useState(false);
   const scannerRef = useRef<any>(null);
-  const videoRef = useRef<HTMLDivElement>(null);
+  const [showManualInput, setShowManualInput] = useState(false);
 
   useEffect(() => {
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop();
-      }
-    };
+    return () => { if (scannerRef.current) scannerRef.current.stop().catch(() => {}); };
   }, []);
 
   const startScanning = async () => {
     try {
       setError(null);
       
-      // Check camera permission first
+      // First check/request camera permission
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'environment' } 
         });
+        // Stop test stream
         stream.getTracks().forEach(track => track.stop());
       } catch (permErr: any) {
         if (permErr.name === 'NotAllowedError' || permErr.name === 'PermissionDeniedError') {
-          setError('Camera permission denied. Please allow camera access in your browser settings.');
+          setError('Camera permission denied. Please allow camera access in your browser settings, then refresh.');
         } else if (permErr.name === 'NotFoundError') {
           setError('No camera found on this device.');
         } else {
@@ -65,81 +61,37 @@ export default function Scanner() {
       
       setScanning(true);
       
-      // Dynamically import quagga2
-      const Quagga = (await import('@ericblade/quagga2')).default;
-      
       // Give DOM time to update
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      if (!videoRef.current) {
-        setError('Scanner not ready. Please try again.');
-        setScanning(false);
-        return;
-      }
+      // Dynamic import to avoid SSR crash
+      const { Html5Qrcode } = await import('html5-qrcode');
       
-      await new Promise<void>((resolve, reject) => {
-        Quagga.init({
-          inputStream: {
-            type: 'LiveStream',
-            target: videoRef.current!,
-            constraints: {
-              facingMode: 'environment',
-              width: { min: 640, ideal: 1280, max: 1920 },
-              height: { min: 480, ideal: 720, max: 1080 }
-            }
-          },
-          decoder: {
-            readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader', 'code_39_reader']
-          },
-          locate: true,
-          frequency: 10
-        }, (err: any) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-      
-      scannerRef.current = Quagga;
-      
-      let lastResult = '';
-      Quagga.onDetected(async (data: any) => {
-        if (data && data.codeResult && data.codeResult.code) {
-          const code = data.codeResult.code;
-          // Avoid duplicate readings
-          if (code !== lastResult) {
-            lastResult = code;
-            // Require high confidence
-            const confidence = data.codeResult.decodedCodes?.[0]?.error ? 0 : 1;
-            if (confidence > 0.5 || !data.codeResult.decodedCodes) {
-              Quagga.stop();
-              setScanning(false);
-              await handleScan(code);
-            }
-          }
-        }
-      });
-      
-    } catch (err: any) {
-      console.error('Scanner error:', err);
+      const scanner = new Html5Qrcode('scanner-container');
+      scannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 280, height: 160 } },
+        async (decodedText) => {
+          await scanner.stop();
+          setScanning(false);
+          await handleScan(decodedText);
+        },
+        () => {} // Ignore scan errors
+      );
+    } catch (err: unknown) {
+      const e = err as {message?: string, name?: string};
       setScanning(false);
-      if (err.name === 'NotAllowedError') {
-        setError('Camera permission denied.');
+      if (e.name === 'NotAllowedError') {
+        setError('Camera permission denied. Please allow camera access.');
       } else {
-        setError('Failed to start camera: ' + (err.message || 'Unknown error'));
+        setError('Camera error: ' + (e.message || 'Failed to start'));
       }
     }
   };
 
-  const stopScanning = () => {
-    if (scannerRef.current) {
-      try {
-        scannerRef.current.stop();
-      } catch (e) {}
-      scannerRef.current = null;
-    }
+  const stopScanning = async () => {
+    if (scannerRef.current) { await scannerRef.current.stop(); scannerRef.current = null; }
     setScanning(false);
   };
 
@@ -159,8 +111,9 @@ export default function Scanner() {
       }
       const data = await response.json();
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to scan product');
+    } catch (err: unknown) {
+      const e = err as {message?: string};
+      setError(e.message || 'Failed to scan product');
     } finally { setLoading(false); }
   };
 
@@ -214,16 +167,9 @@ export default function Scanner() {
           </button>
         </div>
 
+        {/* Scanner */}
         <div style={{ position: 'relative', marginBottom: '20px' }}>
-          <div ref={videoRef} style={{ width: '100%', height: scanning ? '280px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none', position: 'relative' }}>
-            {scanning && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, pointerEvents: 'none' }}>
-                <div style={{ width: '300px', height: '150px', border: '3px solid #667eea', borderRadius: '12px', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }}>
-                  <div style={{ position: 'absolute', top: '-3px', left: '-3px', right: '-3px', height: '4px', background: 'linear-gradient(90deg, transparent, #667eea, transparent)', animation: 'scan 2s ease-in-out infinite' }} />
-                </div>
-              </div>
-            )}
-          </div>
+          <div id="scanner-container" style={{ width: '100%', height: scanning ? '280px' : '180px', background: '#121215', borderRadius: '20px', overflow: 'hidden', display: scanning ? 'block' : 'none' }} />
           
           {!scanning && !loading && !result && (
             <div style={{ textAlign: 'center', padding: '30px 20px', background: '#16161c', borderRadius: '20px', border: '2px dashed #2a2a35' }}>
@@ -313,10 +259,7 @@ export default function Scanner() {
         )}
       </div>
 
-      <style jsx global>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes scan { 0%, 100% { top: -3px; } 50% { top: calc(100% - 1px); } }
-      `}</style>
+      <style jsx global>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
