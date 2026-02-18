@@ -84,14 +84,15 @@ export default function Scanner() {
             target: videoRef.current!,
             constraints: {
               facingMode: 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
+              width: { min: 640, ideal: 1280, max: 1920 },
+              height: { min: 480, ideal: 720, max: 1080 }
             }
           },
           decoder: {
-            readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader']
+            readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader', 'code_39_reader']
           },
-          locate: true
+          locate: true,
+          frequency: 10
         }, (err: any) => {
           if (err) {
             reject(err);
@@ -103,11 +104,21 @@ export default function Scanner() {
       
       scannerRef.current = Quagga;
       
+      let lastResult = '';
       Quagga.onDetected(async (data: any) => {
         if (data && data.codeResult && data.codeResult.code) {
-          Quagga.stop();
-          setScanning(false);
-          await handleScan(data.codeResult.code);
+          const code = data.codeResult.code;
+          // Avoid duplicate readings
+          if (code !== lastResult) {
+            lastResult = code;
+            // Require high confidence
+            const confidence = data.codeResult.decodedCodes?.[0]?.error ? 0 : 1;
+            if (confidence > 0.5 || !data.codeResult.decodedCodes) {
+              Quagga.stop();
+              setScanning(false);
+              await handleScan(code);
+            }
+          }
         }
       });
       
