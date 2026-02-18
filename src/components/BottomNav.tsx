@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { ScanBarcode, Clock, ShoppingCart, User } from 'lucide-react';
+import { ScanBarcode, Clock, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 
 const navItems = [
@@ -19,13 +19,14 @@ export default function BottomNav() {
       bottom: 0,
       left: 0,
       right: 0,
-      background: '#16161f',
-      borderTop: '1px solid #222',
+      background: 'rgba(13, 13, 18, 0.95)',
+      borderTop: '1px solid rgba(255,255,255,0.05)',
       display: 'flex',
       justifyContent: 'space-around',
-      padding: '12px 0',
-      paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+      padding: '10px 0',
+      paddingBottom: 'max(14px, env(safe-area-inset-bottom))',
       zIndex: 100,
+      backdropFilter: 'blur(20px)'
     }}>
       {navItems.map((item) => {
         const isActive = pathname === item.href;
@@ -38,19 +39,21 @@ export default function BottomNav() {
               flexDirection: 'column',
               alignItems: 'center',
               gap: '4px',
-              color: isActive ? '#667eea' : '#666',
+              color: isActive ? '#667eea' : '#555',
               transition: 'all 0.2s',
-              textDecoration: 'none'
+              textDecoration: 'none',
+              padding: '8px 20px'
             }}
           >
             <div style={{
-              padding: '8px',
-              borderRadius: '12px',
-              background: isActive ? 'rgba(102, 126, 234, 0.15)' : 'transparent'
+              padding: isActive ? '10px' : '8px',
+              borderRadius: '14px',
+              background: isActive ? 'rgba(102, 126, 234, 0.15)' : 'transparent',
+              transition: 'all 0.2s'
             }}>
-              <item.icon size={22} />
+              <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
             </div>
-            <span style={{ fontSize: '11px', fontWeight: 500 }}>{item.label}</span>
+            <span style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500 }}>{item.label}</span>
           </Link>
         );
       })}

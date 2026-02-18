@@ -66,115 +66,107 @@ export default function History() {
 
   if (loading) {
     return (
-      <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', paddingTop: '40px' }}>
-        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: '#10B981' }} />
+      <div style={{ padding: '20px', minHeight: '100vh', background: '#0d0d12', paddingTop: '100px', display: 'flex', justifyContent: 'center' }}>
+        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: '#667eea' }} />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px', paddingTop: '20px' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px' }}>
-        History
-      </h1>
-      <p style={{ color: '#A1A1AA', marginBottom: '24px' }}>
-        {scans.length} scans
-      </p>
+    <div style={{ minHeight: '100vh', background: '#0d0d12', paddingBottom: '100px' }}>
+      <div style={{ padding: '24px 20px', paddingTop: '60px', background: 'linear-gradient(180deg, #13131a 0%, #0d0d12 100%)' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+          History
+        </h1>
+        <p style={{ color: '#666', fontSize: '14px' }}>
+          {scans.length} products scanned
+        </p>
+      </div>
 
-      {scans.length === 0 ? (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '40px',
-            color: '#A1A1AA',
-          }}
-        >
-          <p>No scans yet</p>
-          <p style={{ fontSize: '14px', marginTop: '8px' }}>
-            Start scanning products to see them here
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {scans.map((scan) => (
-            <div
-              key={scan.id}
-              style={{
-                background: '#18181B',
-                borderRadius: '12px',
-                padding: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-              }}
-            >
-              {scan.image_url && (
-                <img
-                  src={scan.image_url}
-                  alt={scan.product_name}
+      <div style={{ padding: '20px', paddingTop: '10px' }}>
+        {scans.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(102, 126, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Loader2 size={32} color="#667eea" />
+            </div>
+            <p style={{ color: '#666', fontSize: '15px' }}>No scans yet</p>
+            <p style={{ color: '#444', fontSize: '13px', marginTop: '6px' }}>Start scanning products to build your history</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {scans.map((scan) => (
+              <div
+                key={scan.id}
+                style={{
+                  background: '#16161c',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  border: '1px solid rgba(255,255,255,0.03)'
+                }}
+              >
+                {scan.image_url && (
+                  <img
+                    src={scan.image_url}
+                    alt={scan.product_name}
+                    style={{
+                      width: '56px',
+                      height: '56px',
+                      objectFit: 'contain',
+                      borderRadius: '12px',
+                      background: '#1a1a22'
+                    }}
+                  />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 600, color: '#fff', marginBottom: '4px', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {scan.product_name}
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#555' }}>
+                    {formatDate(scan.scanned_at)}
+                  </p>
+                </div>
+                <div
                   style={{
                     width: '50px',
                     height: '50px',
-                    objectFit: 'contain',
-                    borderRadius: '8px',
-                    background: '#27272A',
-                  }}
-                />
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p
-                  style={{
-                    fontWeight: 600,
-                    marginBottom: '4px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    borderRadius: '50%',
+                    background: getScoreColor(scan.purity_score),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    color: '#fff',
+                    flexShrink: 0
                   }}
                 >
-                  {scan.product_name}
-                </p>
-                <p style={{ fontSize: '12px', color: '#A1A1AA' }}>
-                  {formatDate(scan.scanned_at)}
-                </p>
+                  {scan.purity_score}
+                </div>
+                <button
+                  onClick={() => deleteScan(scan.id)}
+                  disabled={deleting === scan.id}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#444',
+                    cursor: deleting === scan.id ? 'default' : 'pointer',
+                    padding: '8px'
+                  }}
+                >
+                  {deleting === scan.id ? (
+                    <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                  ) : (
+                    <Trash2 size={18} />
+                  )}
+                </button>
               </div>
-              <div
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '50%',
-                  background: getScoreColor(scan.purity_score),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  color: '#fff',
-                  flexShrink: 0,
-                }}
-              >
-                {scan.purity_score}
-              </div>
-              <button
-                onClick={() => deleteScan(scan.id)}
-                disabled={deleting === scan.id}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#A1A1AA',
-                  cursor: deleting === scan.id ? 'default' : 'pointer',
-                  padding: '8px',
-                }}
-              >
-                {deleting === scan.id ? (
-                  <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                ) : (
-                  <Trash2 size={18} />
-                )}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       <style jsx global>{`
         @keyframes spin {

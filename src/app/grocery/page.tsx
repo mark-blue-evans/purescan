@@ -58,146 +58,160 @@ export default function Grocery() {
     return Math.round(sum / items.length);
   };
 
+  const getCartGrade = () => {
+    const avg = getAverageScore();
+    if (avg >= 70) return { grade: 'A', color: '#10B981' };
+    if (avg >= 50) return { grade: 'B', color: '#34d399' };
+    if (avg >= 40) return { grade: 'C', color: '#F59E0B' };
+    if (avg >= 20) return { grade: 'D', color: '#F97316' };
+    return { grade: 'F', color: '#EF4444' };
+  };
+
   if (loading) {
     return (
-      <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', paddingTop: '40px' }}>
-        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: '#10B981' }} />
+      <div style={{ padding: '20px', minHeight: '100vh', background: '#0d0d12', paddingTop: '100px', display: 'flex', justifyContent: 'center' }}>
+        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: '#667eea' }} />
       </div>
     );
   }
 
   const avgScore = getAverageScore();
+  const { grade, color } = getCartGrade();
 
   return (
-    <div style={{ padding: '20px', paddingTop: '20px' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '8px' }}>
-        Grocery List
-      </h1>
-      <p style={{ color: '#A1A1AA', marginBottom: '24px' }}>
-        {items.length} items
-      </p>
+    <div style={{ minHeight: '100vh', background: '#0d0d12', paddingBottom: '100px' }}>
+      <div style={{ padding: '24px 20px', paddingTop: '60px', background: 'linear-gradient(180deg, #13131a 0%, #0d0d12 100%)' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+          Grocery List
+        </h1>
+        <p style={{ color: '#666', fontSize: '14px' }}>
+          {items.length} items
+        </p>
+      </div>
 
-      {/* Summary Card */}
-      {items.length > 0 && (
-        <div
-          style={{
-            background: '#18181B',
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '24px',
+      <div style={{ padding: '20px', paddingTop: '10px' }}>
+        {/* Summary Card */}
+        {items.length > 0 && (
+          <div style={{ 
+            background: '#16161c', 
+            borderRadius: '20px', 
+            padding: '24px',
+            marginBottom: '20px',
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
-          }}
-        >
-          <ShoppingBag size={32} color="#A1A1AA" />
-          <div style={{ flex: 1 }}>
-            <p style={{ color: '#A1A1AA', fontSize: '14px' }}>Cart Purity Score</p>
-            <p style={{ fontSize: '24px', fontWeight: 700 }}>
-              {avgScore}/100
-            </p>
-          </div>
-          <div
-            style={{
-              width: '60px',
-              height: '60px',
+            gap: '20px',
+            border: '1px solid rgba(255,255,255,0.05)'
+          }}>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '20px',
+              background: `${color}20`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '40px',
+              fontWeight: 700,
+              color: color
+            }}>
+              {grade}
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ color: '#888', fontSize: '13px', marginBottom: '4px' }}>Cart Grade</p>
+              <p style={{ fontSize: '28px', fontWeight: 700, color: '#fff' }}>
+                {avgScore}/100
+              </p>
+              <p style={{ color: '#666', fontSize: '12px' }}>
+                Based on {items.length} items
+              </p>
+            </div>
+            <div style={{
+              width: '50px',
+              height: '50px',
               borderRadius: '50%',
-              background: getScoreColor(avgScore),
+              background: color,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
               fontSize: '18px',
-              color: '#fff',
-            }}
-          >
-            {avgScore}
+              color: '#fff'
+            }}>
+              {avgScore}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {items.length === 0 ? (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '40px',
-            color: '#A1A1AA',
-          }}
-        >
-          <ShoppingBag size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-          <p>Your grocery list is empty</p>
-          <p style={{ fontSize: '14px', marginTop: '8px' }}>
-            Add products from scans to build your list
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {items.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                background: '#18181B',
-                borderRadius: '12px',
-                padding: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p
-                  style={{
-                    fontWeight: 600,
-                    marginBottom: '4px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {item.product_name}
-                </p>
-                <p style={{ fontSize: '12px', color: '#A1A1AA' }}>
-                  Added {new Date(item.added_at).toLocaleDateString()}
-                </p>
-              </div>
+        {items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(102, 126, 234, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <ShoppingBag size={32} color="#667eea" />
+            </div>
+            <p style={{ color: '#666', fontSize: '15px' }}>Your grocery list is empty</p>
+            <p style={{ color: '#444', fontSize: '13px', marginTop: '6px' }}>Add products from scans</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {items.map((item) => (
               <div
+                key={item.id}
                 style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '50%',
-                  background: getScoreColor(item.purity_score),
+                  background: '#16161c',
+                  borderRadius: '16px',
+                  padding: '16px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  color: '#fff',
-                  flexShrink: 0,
+                  gap: '14px',
+                  border: '1px solid rgba(255,255,255,0.03)'
                 }}
               >
-                {item.purity_score}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 600, color: '#fff', marginBottom: '4px', fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.product_name}
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#555' }}>
+                    Added {new Date(item.added_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div
+                  style={{
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    background: getScoreColor(item.purity_score),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    color: '#fff',
+                    flexShrink: 0
+                  }}
+                >
+                  {item.purity_score}
+                </div>
+                <button
+                  onClick={() => deleteItem(item.id)}
+                  disabled={deleting === item.id}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#444',
+                    cursor: deleting === item.id ? 'default' : 'pointer',
+                    padding: '8px'
+                  }}
+                >
+                  {deleting === item.id ? (
+                    <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                  ) : (
+                    <Trash2 size={18} />
+                  )}
+                </button>
               </div>
-              <button
-                onClick={() => deleteItem(item.id)}
-                disabled={deleting === item.id}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#A1A1AA',
-                  cursor: deleting === item.id ? 'default' : 'pointer',
-                  padding: '8px',
-                }}
-              >
-                {deleting === item.id ? (
-                  <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                ) : (
-                  <Trash2 size={18} />
-                )}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       <style jsx global>{`
         @keyframes spin {
