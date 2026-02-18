@@ -1,4 +1,4 @@
-// OpenFoodFacts API Client - Optimized for more data
+// OpenFoodFacts API Client - Balanced for speed and data
 
 export interface ProductData {
   barcode: string;
@@ -25,7 +25,6 @@ export interface ProductData {
   allergens?: string[];
 }
 
-// Country code to flag emoji mapping
 export const countryFlags: Record<string, string> = {
   'united-states': '🇺🇸', 'united-kingdom': '🇬🇧', 'germany': '🇩🇪',
   'france': '🇫🇷', 'spain': '🇪🇸', 'italy': '🇮🇹', 'ireland': '🇮🇪',
@@ -34,11 +33,10 @@ export const countryFlags: Record<string, string> = {
 
 export function getCountryFlag(countryName: string): string {
   if (!countryName) return '🌍';
-  const normalized = countryName.toLowerCase().trim();
-  return countryFlags[normalized] || '🌍';
+  return countryFlags[countryName.toLowerCase().trim()] || '🌍';
 }
 
-async function fetchWithTimeout(url: string, timeout: number = 5000): Promise<Response> {
+async function fetchWithTimeout(url: string, timeout: number = 4000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
@@ -53,10 +51,12 @@ async function fetchWithTimeout(url: string, timeout: number = 5000): Promise<Re
 
 export async function lookupProduct(barcode: string): Promise<ProductData | null> {
   try {
-    // Request ALL fields for maximum data
+    // Request essential fields + additives/allergens
+    const fields = 'code,product_name,product_name_en,brands,image_url,image_front_url,ingredients_text,ingredients,nova_group,nutriments,countries_tags,categories,additives_tags,additives,allergens_tags';
+    
     const response = await fetchWithTimeout(
-      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`,
-      5000
+      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${fields}`,
+      4000
     );
     
     if (!response.ok) return null;
@@ -66,7 +66,7 @@ export async function lookupProduct(barcode: string): Promise<ProductData | null
     
     const p = data.product;
     
-    // Parse ingredients - try multiple fields
+    // Parse ingredients
     let ingredients: string[] = [];
     if (p.ingredients_text) {
       ingredients = p.ingredients_text
@@ -81,8 +81,6 @@ export async function lookupProduct(barcode: string): Promise<ProductData | null
     let additives: string[] = [];
     if (p.additives_tags) {
       additives = p.additives_tags.map((a: string) => a.replace(/^[a-z]{2}:/, '').replace(/-/g, ' '));
-    } else if (p.additives) {
-      additives = typeof p.additives === 'string' ? p.additives.split(',').map((a: string) => a.trim()) : [];
     }
     
     // Get allergens
@@ -91,7 +89,7 @@ export async function lookupProduct(barcode: string): Promise<ProductData | null
       allergens = p.allergens_tags.map((a: string) => a.replace(/^[a-z]{2}:/, '').replace(/-/g, ' '));
     }
     
-    const countryTag = p.countries_tags?.[0]?.replace('en:', '') || p.country_of_origin_tags?.[0]?.replace('en:', '') || '';
+    const countryTag = p.countries_tags?.[0]?.replace('en:', '') || '';
     
     return {
       barcode: p.code || barcode,
@@ -102,10 +100,10 @@ export async function lookupProduct(barcode: string): Promise<ProductData | null
       novaGroup: p.nova_group ? parseInt(p.nova_group) : undefined,
       nutriments: p.nutriments,
       countryOfOrigin: countryTag,
-      manufacturingPlaces: p.manufacturing_places || '',
-      origins: p.origins || '',
+      manufacturingPlaces: '',
+      origins: '',
       categories: p.categories_tags?.map((c: string) => c.replace('en:', '')).join(', ') || p.categories || '',
-      labels: p.labels_tags?.map((l: string) => l.replace('en:', '')).join(', ') || p.labels || '',
+      labels: '',
       additives,
       allergens
     };
