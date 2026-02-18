@@ -218,42 +218,39 @@ export default function Scanner() {
         </div>
 
         {/* Scanner */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', marginBottom: '24px' }}>
           <div 
             id="scanner-container" 
             style={{ 
               width: '100%', 
-              height: scanning ? '260px' : '180px', 
-              background: '#16161c', 
-              borderRadius: '20px', 
+              height: scanning ? '280px' : '220px', 
+              background: '#121215', 
+              borderRadius: '24px', 
               overflow: 'hidden',
               display: scanning ? 'block' : 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              marginBottom: '0'
+              border: '2px dashed #2a2a35'
             }} 
           />
 
           {!scanning && !loading && !result && (
             <div style={{ 
-              position: 'absolute', 
-              top: '50%', 
-              left: '50%', 
-              transform: 'translate(-50%, -50%)',
               textAlign: 'center',
-              width: '100%'
+              width: '100%',
+              padding: '20px'
             }}>
               <div style={{ 
                 width: '80px', 
                 height: '80px', 
                 borderRadius: '50%', 
-                background: 'rgba(102, 126, 234, 0.15)',
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 12px'
+                margin: '0 auto 16px'
               }}>
-                <Camera size={32} color="#667eea" />
+                <Camera size={36} color="#667eea" />
               </div>
               <p style={{ color: '#555', fontSize: '14px', marginBottom: '16px' }}>Point camera at barcode</p>
               <button

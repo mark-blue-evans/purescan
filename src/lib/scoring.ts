@@ -162,7 +162,9 @@ export function analyzeIngredients(ingredients: string[]): IngredientAnalysis {
 
 export function calculatePurityScore(
   ingredients: string[],
-  novaCategory?: number
+  novaCategory?: number,
+  additivesFromAPI?: string[],
+  allergensFromAPI?: string[]
 ): ScoreResult {
   let score = 100;
   const breakdown = {
@@ -188,7 +190,23 @@ export function calculatePurityScore(
     carcinogens: [] as string[]
   };
 
-  const analysis = analyzeIngredients(ingredients);
+  // Use ingredients from API if provided, otherwise analyze from text
+  const ingredientList = ingredients && ingredients.length > 0 ? ingredients : [];
+  const analysis = analyzeIngredients(ingredientList);
+
+  // Add API-detected additives
+  if (additivesFromAPI && additivesFromAPI.length > 0) {
+    risks.additives = additivesFromAPI.map(a => `Additive: ${a}`);
+    breakdown.additivesPenalty = Math.min(additivesFromAPI.length * 5, 40);
+    score -= breakdown.additivesPenalty;
+  }
+
+  // Add API-detected allergens
+  if (allergensFromAPI && allergensFromAPI.length > 0) {
+    risks.additives.push(...allergensFromAPI.map(a => `Allergen: ${a}`));
+    breakdown.additivesPenalty += allergensFromAPI.length * 3;
+    score -= allergensFromAPI.length * 3;
+  }
 
   // Seed oils penalty (-15 per oil)
   if (analysis.seedOils.length > 0) {
@@ -197,11 +215,11 @@ export function calculatePurityScore(
     risks.seedOils = analysis.seedOils.map(o => `Contains ${o}`);
   }
 
-  // Additives penalty (-5 per additive)
-  if (analysis.additives.length > 0) {
+  // Additives from text analysis
+  if (analysis.additives.length > 0 && !additivesFromAPI) {
     breakdown.additivesPenalty = Math.min(analysis.additives.length * 5, 30);
     score -= breakdown.additivesPenalty;
-    risks.additives = [`${analysis.additives.length} additives detected`];
+    risks.additives = [...risks.additives, ...analysis.additives.map(a => `Additive: ${a}`)];
   }
 
   // Artificial ingredients penalty (-10 per artificial)
